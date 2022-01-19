@@ -1,7 +1,10 @@
 Backup Controller
 =================
 
+![](docs/backup-controller.svg)
+
 Backups made easy, automated, monitored and SECURED with an audited encryption.
+
 Schedules backup tasks executed by `Backup Maker`, uploaded to `Backup Repository` server.
 
 ```bash
@@ -101,11 +104,6 @@ Requirements
 - PostgreSQL client tools (if going to backup & restore PostgreSQL databases)
 - GNU tar
 - GNU Privacy Guard 2.x (mandatory, for E2E encryption support. There is no way to turn off encryption)
-
-Architecture
-------------
-
-![](docs/backup-controller.svg)
 
 Installing
 ----------
