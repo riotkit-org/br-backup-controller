@@ -92,9 +92,4 @@ class Adapter(AdapterInterface):
         return BackupDefinition.from_config(Definition, config, name)
 
     def get_required_binaries(self) -> List[RequiredBinary]:
-        from ..bin import RequiredBinaryFromGithubRelease  # todo: remove (testing only)
-
-        return [
-            # todo: remove (testing only)
-            RequiredBinaryFromGithubRelease("riotkit-org/gpbkdf2", "v1.0", "gpbkdf2")
-        ]
+        return []

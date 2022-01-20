@@ -1,6 +1,8 @@
 Backup Controller
 =================
 
+WIP: Note this project is a work in progress
+
 ![](docs/backup-controller.svg)
 
 Backups made easy, automated, monitored and SECURED with an audited encryption.

@@ -16,7 +16,7 @@ from docker.models.containers import Container
 from rkd.api.inputoutput import IO
 from .base import TransportInterface, create_backup_maker_command
 from .sh import LocalFilesystem
-from ..bin import RequiredBinary, fetch_required_tools_from_cache
+from ..bin import RequiredBinary, copy_required_tools_from_controller_cache_to_target_env
 from ..fs import FilesystemInterface
 from ..settings import TARGET_ENV_BIN_PATH, TARGET_ENV_VERSIONS_PATH
 
@@ -149,7 +149,7 @@ class Transport(TransportInterface):
         new_path = self.discover_path_variable_in_container() + ":" + self.bin_path
         self.io().debug(f"Setting $PATH={new_path}")
 
-        fetch_required_tools_from_cache(
+        copy_required_tools_from_controller_cache_to_target_env(
             local_cache_fs=LocalFilesystem(),
             dst_fs=self.fs,
             io=self.io(),

@@ -8,7 +8,7 @@ from kubernetes.stream import stream
 from kubernetes.stream.ws_client import WSClient, ERROR_CHANNEL
 from rkd.api.inputoutput import IO
 
-from bahub.bin import RequiredBinary, fetch_required_tools_from_cache, RequiredBinaryFromGithubReleasePackedInArchive
+from bahub.bin import RequiredBinary, copy_required_tools_from_controller_cache_to_target_env, RequiredBinaryFromGithubReleasePackedInArchive
 from bahub.settings import BIN_VERSION_CACHE_PATH, TARGET_ENV_BIN_PATH, TARGET_ENV_VERSIONS_PATH
 from bahub.transports.base import TransportInterface, create_backup_maker_command
 from bahub.transports.kubernetes import KubernetesPodFilesystem
@@ -71,7 +71,7 @@ class Transport(TransportInterface):
         pod_name = self.find_pod_name()
         self.wait_for_pod_to_be_ready(pod_name, self._namespace)
 
-        fetch_required_tools_from_cache(
+        copy_required_tools_from_controller_cache_to_target_env(
             local_cache_fs=LocalFilesystem(),
             dst_fs=KubernetesPodFilesystem(pod_name, self._namespace, self.io()),
             io=self.io(),

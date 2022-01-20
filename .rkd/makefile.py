@@ -42,9 +42,9 @@ TASKS = [
     Pipeline(':test:dev:create', [':sh', '-c', '''
         docker run --name nginx_bahub_test -d nginx:1.19 || true;
     
-        export TEST_COLLECTION_ID=$(cat ../backup-maker/.build/test/collection-id.txt);
-        export SERVER_URL=$(cat ../backup-maker/.build/test/domain.txt);
-        export API_TOKEN=$(cat ../backup-maker/.build/test/collection-id.txt);
+        export TEST_COLLECTION_ID=$(cat .build/test/collection-id.txt);
+        export SERVER_URL=$(cat .build/test/domain.txt);
+        export API_TOKEN=$(cat .build/test/collection-id.txt);
         RKD_SYS_LOG_LEVEL=debug python -m bahub :backup:make -c ./bahub.conf.yaml fs_kubernetes_pod -rl debug
     ''']),
 

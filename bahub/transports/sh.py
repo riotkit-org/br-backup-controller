@@ -14,7 +14,7 @@ from typing import List
 from rkd.api.inputoutput import IO
 
 from .base import TransportInterface, create_backup_maker_command
-from ..bin import RequiredBinary, download_required_tools, fetch_required_tools_from_cache
+from ..bin import RequiredBinary, download_required_tools, copy_required_tools_from_controller_cache_to_target_env
 from ..fs import FilesystemInterface
 from ..inputoutput import StreamableBuffer
 from ..model import BackupDefinition
@@ -81,7 +81,7 @@ class Transport(TransportInterface):
         self.fs = LocalFilesystem()
 
     def prepare_environment(self, binaries: List[RequiredBinary]) -> None:
-        fetch_required_tools_from_cache(
+        copy_required_tools_from_controller_cache_to_target_env(
             local_cache_fs=LocalFilesystem(),
             dst_fs=self.fs,
             io=self.io(),

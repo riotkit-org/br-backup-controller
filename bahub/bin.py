@@ -14,6 +14,7 @@ from typing import List
 from tempfile import TemporaryFile, NamedTemporaryFile
 from rkd.api.inputoutput import IO
 from bahub.fs import FilesystemInterface
+from bahub.versions import BACKUP_MAKER_BIN_VERSION, TRACEXIT_BIN_VERSION
 
 
 class RequiredBinary(object):
@@ -114,9 +115,9 @@ def download_required_tools(fs: FilesystemInterface, io: IO, bin_path: str,
                 fs.make_executable(version_path)
 
 
-def fetch_required_tools_from_cache(local_cache_fs: FilesystemInterface, dst_fs: FilesystemInterface, io: IO,
-                                    bin_path: str, versions_path: str, local_versions_path: str,
-                                    binaries: List[RequiredBinary]):
+def copy_required_tools_from_controller_cache_to_target_env(local_cache_fs: FilesystemInterface, dst_fs: FilesystemInterface, io: IO,
+                                                            bin_path: str, versions_path: str, local_versions_path: str,
+                                                            binaries: List[RequiredBinary]):
     """
     Pack selected binaries from local cache, send them to remote filesystem and unpack
 
@@ -165,8 +166,23 @@ def fetch_required_tools_from_cache(local_cache_fs: FilesystemInterface, dst_fs:
         io.debug(f"Linking version {version_path} into {bin_path}")
         dst_fs.delete_file(bin_path)
         dst_fs.link(version_path, bin_path)
-        dst_fs.make_executable(bin_path)
+        dst_fs.make_executable(version_path)
 
 
 def get_backup_maker_binaries() -> List[RequiredBinary]:
-    return []
+    return [
+        RequiredBinaryFromGithubReleasePackedInArchive(
+            project_name="riotkit-org/br-backup-maker",
+            version=BACKUP_MAKER_BIN_VERSION,
+            binary_name="br-backup-maker",
+            # todo: support for multiple architectures
+            archive_name="br-backup-maker_0.0.4_linux_amd64.tar.gz"
+        ),
+        RequiredBinaryFromGithubReleasePackedInArchive(
+            project_name="riotkit-org/tracexit",
+            version=TRACEXIT_BIN_VERSION,
+            binary_name="tracexit",
+            # todo: support for multiple architectures
+            archive_name=f"tracexit_{TRACEXIT_BIN_VERSION}_linux_amd64.tar.gz"
+        )
+    ]

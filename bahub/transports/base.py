@@ -14,16 +14,22 @@ from ..schema import create_example_from_attributes
 
 
 def create_backup_maker_command(command: str, definition, is_backup: bool,
-                                version: str = "", prepend: list = None) -> List[str]:
+                                version: str = "", prepend: list = None, bin_path: str = '') -> List[str]:
     args = [
         "/usr/bin/env"
     ]
+
+    if bin_path:
+        args += [
+            bin_path + "/tracexit", f"env:PATH+BIN={bin_path}"
+        ]
 
     if prepend:
         args += prepend
 
     args += [
-        "backup-maker", "make" if is_backup else "restore",
+        "br-backup-maker",
+        "make" if is_backup else "restore",
         "--url", definition.access().url,
         "--collection-id", definition.get_collection_id(),
         "--auth-token", definition.access().token,

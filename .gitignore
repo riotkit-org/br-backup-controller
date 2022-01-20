@@ -4,3 +4,4 @@
 /.venv
 .venv-setup.log
 .idea
+/.build
