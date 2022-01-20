@@ -81,7 +81,8 @@ class Transport(TransportInterface):
             binaries=self._binaries
         )
 
-        complete_cmd = create_backup_maker_command(command, definition, is_backup, version)
+        complete_cmd = create_backup_maker_command(command, definition, is_backup, version,
+                                                   bin_path=TARGET_ENV_BIN_PATH)
         self.io().debug(f"POD exec: `{complete_cmd}`")
 
         # todo: Move to a function e.g. "pod_exec"
@@ -165,14 +166,9 @@ class Transport(TransportInterface):
         pod: V1Pod = pods.items[0]
         pod_metadata: V1ObjectMeta = pod.metadata
 
+        self.io().debug(f"Found POD name: '{pod_metadata.name}' in namespace '{self._namespace}'")
+
         return pod_metadata.name
 
     def get_required_binaries(self):
-        return [
-            RequiredBinaryFromGithubReleasePackedInArchive(
-                project_name="riotkit-org/tracexit",
-                version=TRACEXIT_BIN_VERSION,
-                binary_name="tracexit",
-                archive_name=f"tracexit_{TRACEXIT_BIN_VERSION}_linux_amd64.tar.gz"  # todo: support for multiple architectures
-            )
-        ]
+        return []

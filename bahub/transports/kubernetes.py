@@ -51,7 +51,7 @@ class ExecResult(object):
 
     def has_exited_with_success(self) -> bool:
         if self.is_still_running():
-            return False
+            return True
 
         errors = yaml.load(self._process.read_channel(ERROR_CHANNEL), yaml.FullLoader)
 
@@ -98,31 +98,47 @@ class KubernetesPodFilesystem(FilesystemInterface):
         self.pod_name = pod_name
         self.namespace = namespace
 
-    def _exec(self, cmd: List[str], msg: str):
+    def _exec(self, cmd: List[str], msg: str, exit_code_hack: bool = False):
+        if exit_code_hack:
+            cmd = ["/bin/sh", "-c", (" ".join(cmd)) + " && echo '@<br-exit-ok>'"]
+
         proc = pod_exec(self.pod_name, self.namespace, cmd, self.io)
         result = proc.read()
 
         assert proc.has_exited_with_success(), f"{msg}. {result}"
 
+        if exit_code_hack:
+            assert "@<br-exit-ok>" in result, f"Process exited with failure. Output: {result}"
+
     def force_mkdir(self, path: str):
-        self._exec(["mkdir", "-p", path], "mkdir inside POD failed, cannot create directory")
+        self._exec(["mkdir", "-p", path], "mkdir inside POD failed, cannot create directory", exit_code_hack=True)
 
     def download(self, url: str, destination_path: str):
         self._exec(
             ["curl", "-s", "-L", "--output", destination_path, url],
-            f"curl inside POD failed, cannot download file from '{url}' to '{destination_path}' path inside POD"
+            f"curl inside POD failed, cannot download file from '{url}' to '{destination_path}' path inside POD",
+            exit_code_hack=True
         )
 
     def delete_file(self, path: str):
-        self._exec(["rm", path], f"Cannot remove file inside POD at path '{path}' (inside POD)")
+        try:
+            self._exec(["rm", path], f"Cannot remove file inside POD at path '{path}' (inside POD)",
+                       exit_code_hack=True)
+
+        except AssertionError:
+            self.io.debug(f"Cannot remove file inside POD at path '{path}' (inside POD). Maybe file does not exist")
+            pass
 
     def link(self, src: str, dst: str):
-        self._exec(["ln", "-s", src, dst], f"Cannot make symbolic link from '{src}' to '{dst}' (inside POD)")
+        self._exec(["ln", "-s", src, dst], f"Cannot make symbolic link from '{src}' to '{dst}' (inside POD)",
+                   exit_code_hack=True)
 
     def make_executable(self, path: str):
-        self._exec(["chmod", "+x", path], f"Cannot make file executable at path '{path}' (inside POD)")
+        self._exec(["chmod", "+x", path], f"Cannot make file executable at path '{path}' (inside POD)",
+                   exit_code_hack=True)
 
     def copy_to(self, local_path: str, dst_path: str):
+        # todo: implement copying via `cat - > {dst_path}`
         pass
 
     def pack(self, archive_path: str, src_path: str, files_list: List[str]):
@@ -136,13 +152,13 @@ class KubernetesPodFilesystem(FilesystemInterface):
 
     def unpack(self, archive_path: str, dst_path: str):
         self._exec(
-            ["tar", "-xf", archive_path, "--directory", dst_path],
+            ["tar", "xf", archive_path, "--directory", dst_path],
             f"Cannot unpack files from '{archive_path}' to '{dst_path}'"
         )
 
     def file_exists(self, path: str) -> bool:
         try:
-            self._exec(["test", "-f", path], f"File does not exist")
+            self._exec(["test", "-f", path], f"File does not exist", exit_code_hack=True)
 
         except AssertionError:
             return False
@@ -155,5 +171,6 @@ class KubernetesPodFilesystem(FilesystemInterface):
     def move(self, src: str, dst: str):
         self._exec(
             ["mv", src, dst],
-            f"Cannot move file {src} to {dst} inside POD"
+            f"Cannot move file {src} to {dst} inside POD",
+            exit_code_hack=True
         )
