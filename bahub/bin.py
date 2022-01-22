@@ -160,12 +160,12 @@ def copy_required_tools_from_controller_cache_to_target_env(local_cache_fs: File
 
     # 3: Link versioned files into generic names e.g. "v1.2.3-pg-backuper" into "pg-backuper"
     for binary in binaries:
-        bin_path = bin_path + "/" + binary.get_filename()
+        target_bin_path = bin_path + "/" + binary.get_filename()
         version_path = versions_path + "/" + binary.get_full_name_with_version()
 
-        io.debug(f"Linking version {version_path} into {bin_path}")
-        dst_fs.delete_file(bin_path)
-        dst_fs.link(version_path, bin_path)
+        io.debug(f"Linking version {version_path} into {target_bin_path}")
+        dst_fs.delete_file(target_bin_path)
+        dst_fs.link(version_path, target_bin_path)
         dst_fs.make_executable(version_path)
 
 

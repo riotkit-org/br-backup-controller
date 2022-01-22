@@ -43,10 +43,12 @@ transports:
             pull: false
 
     kubernetes_pod_fs:
-        type: bahub.transports.kubernetespodexec
+        type: bahub.transports.kubernetes_sidepod
         spec:
-            namespace: default
-            selector: "run=nginx"
+            namespace: kube-system
+            selector: "component=etcd"
+            image: "ubuntu:22.04"
+            timeout: 300
 
 #    docker_postgres:
 #        type: bahub.transports.docker

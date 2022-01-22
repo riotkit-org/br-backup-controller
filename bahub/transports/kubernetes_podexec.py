@@ -1,24 +1,26 @@
+"""
+Kubernetes POD EXEC transport
+=============================
+
+Performs `exec` operation into EXISTING, RUNNING POD to run a backup operation in-place.
+"""
+
 import time
 from typing import List
-
-import yaml
 from kubernetes import config, client
 from kubernetes.client import V1PodList, V1Pod, V1ObjectMeta
-from kubernetes.stream import stream
-from kubernetes.stream.ws_client import WSClient, ERROR_CHANNEL
 from rkd.api.inputoutput import IO
 
-from bahub.bin import RequiredBinary, copy_required_tools_from_controller_cache_to_target_env, RequiredBinaryFromGithubReleasePackedInArchive
+from bahub.bin import RequiredBinary, copy_required_tools_from_controller_cache_to_target_env
 from bahub.settings import BIN_VERSION_CACHE_PATH, TARGET_ENV_BIN_PATH, TARGET_ENV_VERSIONS_PATH
 from bahub.transports.base import TransportInterface, create_backup_maker_command
-from bahub.transports.kubernetes import KubernetesPodFilesystem
+from bahub.transports.kubernetes import KubernetesPodFilesystem, pod_exec, ExecResult
 from bahub.transports.sh import LocalFilesystem
-from bahub.versions import TRACEXIT_BIN_VERSION
 
 
 class Transport(TransportInterface):
     _v1_core_api: client.CoreV1Api
-    _process: WSClient
+    _process: ExecResult
     _binaries: List[RequiredBinary]
 
     _namespace: str
@@ -68,7 +70,10 @@ class Transport(TransportInterface):
         Runs a `kubectl exec` on already existing POD
         """
 
-        pod_name = self.find_pod_name()
+        pod_name = self.find_pod_name(self._selector, self._namespace)
+        self._execute_in_pod_when_pod_will_be_ready(pod_name, command, definition, is_backup, version)
+
+    def _execute_in_pod_when_pod_will_be_ready(self, pod_name: str, command: str, definition, is_backup: bool, version: str = ""):
         self.wait_for_pod_to_be_ready(pod_name, self._namespace)
 
         copy_required_tools_from_controller_cache_to_target_env(
@@ -85,16 +90,11 @@ class Transport(TransportInterface):
                                                    bin_path=TARGET_ENV_BIN_PATH)
         self.io().debug(f"POD exec: `{complete_cmd}`")
 
-        # todo: Move to a function e.g. "pod_exec"
-        self._process = stream(
-            self._v1_core_api.connect_get_namespaced_pod_exec,
-            pod_name,
-            self._namespace,
-            command=complete_cmd,
-            stderr=True,
-            stdout=True,
-            stdin=False,
-            _preload_content=False
+        self._process = pod_exec(
+            pod_name=pod_name,
+            namespace=self._namespace,
+            cmd=complete_cmd,
+            io=self._io
         )
 
     def watch(self) -> bool:
@@ -102,32 +102,8 @@ class Transport(TransportInterface):
         Buffers stdout/stderr to io.debug() and notifies about exit code at the end
         """
 
-        while self._process.is_open():
-            self._process.update(timeout=1)
-
-            out = [
-                self._process.readline_stdout() if self._process.peek_stdout() else "",
-                self._process.readline_stderr() if self._process.peek_stderr() else ""
-            ]
-
-            for line in out:
-                if line:
-                    self.io().debug(line)
-
-        # https://github.com/kubernetes-client/python/issues/812
-        errors = yaml.load(self._process.read_channel(ERROR_CHANNEL), yaml.FullLoader)
-
-        if "details" in errors:
-            for error in errors['details']['causes']:
-                if "reason" not in error:
-                    self.io().error(error['message'])
-                    return False
-
-                if error['reason'] == 'ExitCode' and int(error['message']) > 0:
-                    self.io().error(f"Process inside POD exited with status {int(error['message'])}")
-                    return False
-
-        return True
+        self._process.watch(self.io().debug)
+        return self._process.has_exited_with_success()
 
     def wait_for_pod_to_be_ready(self, pod_name: str, namespace: str, timeout: int = 120):
         """
@@ -149,24 +125,24 @@ class Transport(TransportInterface):
 
         raise Exception(f"Timed out while waiting for pod '{pod_name}' in namespace '{namespace}'")
 
-    def find_pod_name(self):
+    def find_pod_name(self, selector: str, namespace: str):
         """
         Returns a POD name
 
         :raises: When no matching POD found
         """
 
-        pods: V1PodList = self.v1_core_api.list_namespaced_pod(self._namespace,
-                                                               label_selector=self._selector,
+        pods: V1PodList = self.v1_core_api.list_namespaced_pod(namespace,
+                                                               label_selector=selector,
                                                                limit=1)
 
         if len(pods.items) == 0:
-            raise Exception(f'No pods found matching selector {self._selector} in {self._namespace} namespace')
+            raise Exception(f'No pods found matching selector {selector} in {namespace} namespace')
 
         pod: V1Pod = pods.items[0]
         pod_metadata: V1ObjectMeta = pod.metadata
 
-        self.io().debug(f"Found POD name: '{pod_metadata.name}' in namespace '{self._namespace}'")
+        self.io().debug(f"Found POD name: '{pod_metadata.name}' in namespace '{namespace}'")
 
         return pod_metadata.name
 

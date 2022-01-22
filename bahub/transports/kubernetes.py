@@ -1,5 +1,10 @@
-from typing import List, Callable
+"""
+Generic Kubernetes methods for building Kubernetes transports
+"""
 
+
+import os
+from typing import List, Callable
 import yaml
 from tempfile import TemporaryDirectory
 from kubernetes.stream.ws_client import WSClient, ERROR_CHANNEL
@@ -138,8 +143,24 @@ class KubernetesPodFilesystem(FilesystemInterface):
                    exit_code_hack=True)
 
     def copy_to(self, local_path: str, dst_path: str):
-        # todo: implement copying via `cat - > {dst_path}`
-        pass
+        process = stream(
+            client.CoreV1Api().connect_get_namespaced_pod_exec,
+            self.pod_name,
+            self.namespace,
+            command=["/bin/sh", "-c", f"cat - > {dst_path}"],
+            stderr=True,
+            stdout=True,
+            stdin=True,
+            _preload_content=False
+        )
+
+        with open(local_path, 'rb') as f:
+            while process.is_open():
+                process.update(timeout=1)
+                process.write_stdin(f.read(1024*1024))
+
+                if f.tell() == os.fstat(f.fileno()).st_size:
+                    process.close()
 
     def pack(self, archive_path: str, src_path: str, files_list: List[str]):
         if not files_list:
