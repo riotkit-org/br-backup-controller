@@ -11,7 +11,8 @@ from kubernetes import config, client
 from kubernetes.client import V1PodList, V1Pod, V1ObjectMeta
 from rkd.api.inputoutput import IO
 
-from bahub.bin import RequiredBinary, copy_required_tools_from_controller_cache_to_target_env
+from bahub.bin import RequiredBinary, copy_required_tools_from_controller_cache_to_target_env, \
+    copy_encryption_keys_from_controller_to_target_env
 from bahub.settings import BIN_VERSION_CACHE_PATH, TARGET_ENV_BIN_PATH, TARGET_ENV_VERSIONS_PATH
 from bahub.transports.base import TransportInterface, create_backup_maker_command
 from bahub.transports.kubernetes import KubernetesPodFilesystem, pod_exec, ExecResult
@@ -73,18 +74,34 @@ class Transport(TransportInterface):
         pod_name = self.find_pod_name(self._selector, self._namespace)
         self._execute_in_pod_when_pod_will_be_ready(pod_name, command, definition, is_backup, version)
 
-    def _execute_in_pod_when_pod_will_be_ready(self, pod_name: str, command: str, definition, is_backup: bool, version: str = ""):
-        self.wait_for_pod_to_be_ready(pod_name, self._namespace)
+    def __exit__(self, exc_type, exc_val, exc_t) -> None:
+        """
+        Todo: Delete GPG keys from POD
 
-        copy_required_tools_from_controller_cache_to_target_env(
-            local_cache_fs=LocalFilesystem(),
-            dst_fs=KubernetesPodFilesystem(pod_name, self._namespace, self.io()),
-            io=self.io(),
-            bin_path=TARGET_ENV_BIN_PATH,
-            versions_path=TARGET_ENV_VERSIONS_PATH,
-            local_versions_path=BIN_VERSION_CACHE_PATH,
-            binaries=self._binaries
-        )
+        :param exc_type:
+        :param exc_val:
+        :param exc_t:
+        :return:
+        """
+        pass
+
+    def _execute_in_pod_when_pod_will_be_ready(self, pod_name: str, command: str, definition,
+                                               is_backup: bool, version: str = ""):
+        """
+        Spawns backup process in a prepared environment inside POD
+        Waits for POD to be ready, injects required dependencies then starts a command
+        Later command will be watched using watch() API method
+
+        :param pod_name:
+        :param command:
+        :param definition:
+        :param is_backup:
+        :param version:
+        :return:
+        """
+
+        self.wait_for_pod_to_be_ready(pod_name, self._namespace)
+        self._prepare_environment_inside_pod(definition, pod_name)
 
         complete_cmd = create_backup_maker_command(command, definition, is_backup, version,
                                                    bin_path=TARGET_ENV_BIN_PATH)
@@ -95,6 +112,33 @@ class Transport(TransportInterface):
             namespace=self._namespace,
             cmd=complete_cmd,
             io=self._io
+        )
+
+    def _prepare_environment_inside_pod(self, definition, pod_name: str) -> None:
+        """
+        Populate with GPG keys and required tools
+
+        :param definition:
+        :param pod_name:
+        :return:
+        """
+
+        pod_fs = KubernetesPodFilesystem(pod_name, self._namespace, self.io())
+        copy_encryption_keys_from_controller_to_target_env(
+            src_fs=LocalFilesystem(),
+            pub_key_path=definition.encryption().get_public_key_path(),
+            private_key_path=definition.encryption().get_private_key_path(),
+            dst_fs=pod_fs,
+            io=self.io()
+        )
+        copy_required_tools_from_controller_cache_to_target_env(
+            local_cache_fs=LocalFilesystem(),
+            dst_fs=pod_fs,
+            io=self.io(),
+            bin_path=TARGET_ENV_BIN_PATH,
+            versions_path=TARGET_ENV_VERSIONS_PATH,
+            local_versions_path=BIN_VERSION_CACHE_PATH,
+            binaries=self._binaries
         )
 
     def watch(self) -> bool:

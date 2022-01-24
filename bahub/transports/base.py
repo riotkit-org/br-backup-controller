@@ -33,12 +33,20 @@ def create_backup_maker_command(command: str, definition, is_backup: bool,
         "--url", definition.access().url,
         "--collection-id", definition.get_collection_id(),
         "--auth-token", definition.access().token,
-        "--passphrase", definition.encryption().get_passphrase(),
         "-c", command,
-        "--key", os.path.realpath(definition.encryption().get_public_key_path()),
         "--recipient", definition.encryption().recipient(),
         "--log-level", "info"
     ]
+
+    if is_backup:
+        if os.path.realpath(definition.encryption().get_public_key_path()):
+            args += ["--key", "/tmp/.gpg.pub"]
+    else:
+        if os.path.realpath(definition.encryption().get_private_key_path()):
+            args += ["--private-key", "/tmp/.gpg.key"]
+
+    if definition.encryption().get_passphrase():
+        args += ["--passphrase", definition.encryption().get_passphrase()]
 
     if not is_backup:
         args += ["--version", version]

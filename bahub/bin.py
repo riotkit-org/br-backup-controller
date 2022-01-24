@@ -115,6 +115,27 @@ def download_required_tools(fs: FilesystemInterface, io: IO, bin_path: str,
                 fs.make_executable(version_path)
 
 
+def copy_encryption_keys_from_controller_to_target_env(src_fs: FilesystemInterface, dst_fs: FilesystemInterface,
+                                                       pub_key_path: str, private_key_path: str, io: IO) -> None:
+    """
+    Copies GPG keys from source to REMOTE filesystem
+
+    :param src_fs:
+    :param dst_fs:
+    :param pub_key_path:
+    :param private_key_path:
+    :param io:
+    :return:
+    """
+
+    io.info("Copying encryption keys")
+
+    for key_type, key_path in {'key': private_key_path, 'pub': pub_key_path}.items():
+        if key_path and src_fs.file_exists(key_path):
+            io.debug(f"{key_path} -> /tmp/.gpg.{key_type}")
+            dst_fs.copy_to(key_path, f"/tmp/.gpg.{key_type}")
+
+
 def copy_required_tools_from_controller_cache_to_target_env(local_cache_fs: FilesystemInterface, dst_fs: FilesystemInterface, io: IO,
                                                             bin_path: str, versions_path: str, local_versions_path: str,
                                                             binaries: List[RequiredBinary]):

@@ -46,15 +46,31 @@ class Transport(KubernetesPodExecTransport):
                 },
                 "image": {
                     "type": "string",
-                    "default": "alpine:3.12"
-                    # "example": "gcr.io/riotkit-org/backup-maker-standard-env:latest",
-                    # "default": "gcr.io/riotkit-org/backup-maker-standard-env:latest"
+                    "example": "ghcr.io/riotkit-org/backup-maker-env:latest",
+                    "default": "ghcr.io/riotkit-org/backup-maker-env:latest"
                 },
                 "timeout": {
                     "type": "integer",
                     "default": 3600,
                     "example": 3600
                 }
+
+                # todo: Optional scale-down of application for backup time
+                # "scaleResource": {
+                #     "type": "object",
+                #     "properties": {
+                #         "kind": {
+                #             "type": "string",
+                #             "example": "deployment",
+                #             "default": "deployment"
+                #         },
+                #         "selector": {
+                #             "type": "string",
+                #             "example": "my-label=myvalue",
+                #             "default": ""
+                #         }
+                #     },
+                # }
             }
         }
 
@@ -86,9 +102,12 @@ class Transport(KubernetesPodExecTransport):
 
         try:
             self._v1_core_api.create_namespaced_pod(namespace=self._namespace, body=specification)
+
         except ApiException as e:
             if e.reason == "Conflict" and "AlreadyExists" in str(e.body):
-                raise Exception(f"POD '{pod_name}' already exists or is terminating, please wait a moment") from e
+                raise Exception(f"POD '{pod_name}' already exists or is terminating, "
+                                f"please wait a moment - cannot start process in parallel, "
+                                f"it may break something") from e
 
             raise e
 
@@ -103,6 +122,7 @@ class Transport(KubernetesPodExecTransport):
 
         try:
             pod_volumes = pod['spec']['volumes']
+
         except KeyError:
             return {}, []
 
@@ -133,6 +153,15 @@ class Transport(KubernetesPodExecTransport):
         return pod_volumes, mounts
 
     def __exit__(self, exc_type, exc_val, exc_t) -> None:
+        """
+        After operation try to clean up - terminate the temporary POD
+
+        :param exc_type:
+        :param exc_val:
+        :param exc_t:
+        :return:
+        """
+
         self._terminate_pod(self._temporary_pod_name)
 
     def _create_backup_pod_definition(self, original_pod_name: str, backup_pod_name: str, timeout: int,
