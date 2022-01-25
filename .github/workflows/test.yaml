@@ -13,6 +13,9 @@ jobs:
               with:
                   fetch-depth: 0
 
+            - name: Prepare OS
+              run: apt-get update && apt-get install -y curl
+
             - name: Prepare Python
               uses: actions/setup-python@v2
               with:
