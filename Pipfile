@@ -16,3 +16,4 @@ kubernetes = "*"
 
 [dev-packages]
 rkd-python = ">=2.3.4"
+pytest = "*"
