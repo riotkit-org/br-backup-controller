@@ -37,4 +37,6 @@ jobs:
                   pipenv install --deploy --dev
 
             - name: Test
-              run: pipenv run pytest .
+              run: |
+                  export PYTHONPATH=$(pwd);
+                  pipenv run pytest .
