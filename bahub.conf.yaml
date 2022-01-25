@@ -45,10 +45,11 @@ transports:
     kubernetes_pod_fs:
         type: bahub.transports.kubernetes_sidepod
         spec:
-            namespace: kube-system
-            selector: "component=etcd"
-            image: "ubuntu:22.04"
+            namespace: default
+            selector: "app=nginx"
+            image: "ghcr.io/riotkit-org/backup-maker-env:latest"
             timeout: 300
+            scaleDown: true
 
 #    docker_postgres:
 #        type: bahub.transports.docker

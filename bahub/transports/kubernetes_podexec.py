@@ -21,6 +21,7 @@ from bahub.transports.sh import LocalFilesystem
 
 class Transport(TransportInterface):
     _v1_core_api: client.CoreV1Api
+    _v1_apps_api: client.AppsV1Api
     _process: ExecResult
     _binaries: List[RequiredBinary]
 
@@ -56,12 +57,20 @@ class Transport(TransportInterface):
         }
 
     @property
-    def v1_core_api(self):
+    def v1_core_api(self) -> client.CoreV1Api:
         if not hasattr(self, '_v1_core_api'):
             config.load_kube_config()  # todo: Add support for selecting cluster
             self._v1_core_api = client.CoreV1Api()
 
         return self._v1_core_api
+
+    @property
+    def v1_apps_api(self) -> client.AppsV1Api:
+        if not hasattr(self, '_v1_apps_api'):
+            config.load_kube_config()  # todo: Add support for selecting cluster
+            self._v1_apps_api = client.AppsV1Api()
+
+        return self._v1_apps_api
 
     def prepare_environment(self, binaries: List[RequiredBinary]) -> None:
         self._binaries = binaries
