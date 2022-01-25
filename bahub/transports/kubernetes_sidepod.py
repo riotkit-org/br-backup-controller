@@ -286,7 +286,8 @@ class Transport(KubernetesPodExecTransport):
                     {
                         'image': self._image,
                         'name': backup_pod_name,
-                        'args': ['sleep', str(timeout)],
+                        'command': ["/bin/sh"],
+                        'args': ['-c', f'sleep {str(timeout)}'],
                         'restartPolicy': 'never',
                         'volumeMounts': volume_mounts
                     }
