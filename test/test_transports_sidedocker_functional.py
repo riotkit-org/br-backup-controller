@@ -7,7 +7,7 @@ from unittest.mock import patch
 from rkd.api.inputoutput import IO
 from rkd.api.testing import BasicTestingCase
 from bahub.model import ServerAccess, Encryption
-from bahub.transports.sidedocker import Transport
+from bahub.transports.docker_sidecontainer import Transport
 from bahub.adapters.filesystem import Definition as FilesystemBackupDefinition
 
 
@@ -48,7 +48,7 @@ class TestSideDockerTransport(BasicTestingCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self._nginx_container = DockerContainer(image='quay.io/bitnami/nginx:1.21-debian-10')\
+        self._nginx_container = DockerContainer(image='ghcr.io/linuxserver/nginx:1.20.2')\
             .with_name("nginx-side-docker").with_volume_mapping(os.getcwd() + "/.github", "/mnt").start()
 
     def tearDown(self) -> None:
