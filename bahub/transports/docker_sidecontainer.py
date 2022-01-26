@@ -93,14 +93,14 @@ class Transport(RegularDockerTransport):
                 command=[str(86400 * 5)],
                 host_config=host_config
             )
-            self.container = self.client.containers.get(info['Id'])
+            self._container = self.client.containers.get(info['Id'])
             self.io().debug('Temporary container was spawned')
 
-            self.container.start()
+            self._container.start()
             self.io().debug('Temporary container was started')
 
             # will allow injection of required binaries into container
-            self.fs = DockerFilesystemTransport(self.container)
+            self.fs = DockerFilesystemTransport(self._container)
         except:
             if is_there_original_container and self._should_stop_original:
                 self.io().error("Error while starting temporary container, restoring original container")

@@ -86,7 +86,7 @@ class Transport(TransportInterface):
     _container_name: str
     _shell: str
     _client: DockerClient
-    container: Container
+    _container: Container
     bin_path: str = TARGET_ENV_BIN_PATH
     versions_path: str = TARGET_ENV_VERSIONS_PATH
     binaries: List[RequiredBinary]
@@ -110,8 +110,14 @@ class Transport(TransportInterface):
         return self._client
 
     def _populate_container_information(self):
-        self.container = self.client.containers.get(self._container_name)
         self.fs = DockerFilesystemTransport(self.container)
+
+    @property
+    def container(self) -> Container:
+        if not hasattr(self, "_container"):
+            self._container = self.client.containers.get(self._container_name)
+
+        return self._container
 
     @staticmethod
     def get_specification_schema() -> dict:
