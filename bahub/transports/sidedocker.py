@@ -73,25 +73,27 @@ class Transport(RegularDockerTransport):
         :return:
         """
 
+        is_there_original_container = hasattr(self, "original_container")
+
         # stop the original container at first
-        if self._should_stop_original:
+        if is_there_original_container and self._should_stop_original:
             self.io().info('Stopping original container {}'.format(self.original_container.id))
             self.original_container.stop()
 
         try:
             self.io().info('Creating a temporary container...')
-            host_config = self._client.api.create_host_config(volumes_from=[self.original_container.id])
+            host_config = self.client.api.create_host_config(volumes_from=[self.original_container.id])
 
             if self._should_pull_image:
                 subprocess.check_call(['docker', 'pull', self._temp_image])
 
-            info = self._client.api.create_container(
+            info = self.client.api.create_container(
                 image=self._temp_image,
                 entrypoint=['sleep'],
                 command=[str(86400 * 5)],
                 host_config=host_config
             )
-            self.container = self._client.containers.get(info['Id'])
+            self.container = self.client.containers.get(info['Id'])
             self.io().debug('Temporary container was spawned')
 
             self.container.start()
@@ -100,7 +102,7 @@ class Transport(RegularDockerTransport):
             # will allow injection of required binaries into container
             self.fs = DockerFilesystemTransport(self.container)
         except:
-            if self._should_stop_original:
+            if is_there_original_container and self._should_stop_original:
                 self.io().error("Error while starting temporary container, restoring original container")
                 self.original_container.start()
 

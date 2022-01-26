@@ -68,7 +68,7 @@ class TestConfigurationFactory(BasicTestingCase):
 
             sensitive_data = conf.get_all_sensitive_data()
 
-            self.assertIn('some-string-passphrase', sensitive_data)
+            self.assertIn('riotkit', sensitive_data)
             self.assertIn('eyJ0eXAiOiJKV1QiLCJhbGci', str(sensitive_data))
 
     def test_functionally_example_env_is_parsed(self):

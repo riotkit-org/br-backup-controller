@@ -103,7 +103,7 @@ class Transport(TransportInterface):
 
     @property
     def client(self) -> DockerClient:
-        if not self._client:
+        if not hasattr(self, "_client"):
             self._client = docker.from_env()
             self._populate_container_information()
 

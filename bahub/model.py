@@ -15,8 +15,8 @@ class ServerAccess(object):
     Backup Repository user access
     """
 
-    url: str = ""
-    token: str = ""
+    url: str
+    token: str
 
     @staticmethod
     def from_config(config: dict):
@@ -59,9 +59,8 @@ class Encryption(object):
         is_encrypting = config.get('method', '') != ''
 
         if is_encrypting:
-            for key in ['passphrase']:
-                if key not in config:
-                    raise KeyError(key)
+            if "private_key_path" not in config and "public_key_path" not in config:
+                raise KeyError("private_key_path|or|public_key_path")
 
         return Encryption(
             name=name,
@@ -96,17 +95,15 @@ class BackupDefinition(ABC):
     """
 
     _access: ServerAccess
-    _type: str = ""
     _encryption: Encryption
     _collection_id: str
     _name: str
     _spec: dict
     _transport: TransportInterface
 
-    def __init__(self, access: ServerAccess, _type: str, collection_id: str, encryption: Encryption,
+    def __init__(self, access: ServerAccess, collection_id: str, encryption: Encryption,
                  name: str, spec: dict, transport: TransportInterface):
         self._access = access
-        self._type = _type
         self._encryption = encryption
         self._collection_id = collection_id
         self._name = name
@@ -119,7 +116,6 @@ class BackupDefinition(ABC):
 
         return cls(
             access=config['meta']['access'],
-            _type=config['meta']['type'],
             collection_id=config['meta']['collection_id'],
             encryption=config['meta']['encryption'],
             name=name,
@@ -166,9 +162,6 @@ class BackupDefinition(ABC):
 
     def encryption(self) -> Encryption:
         return self._encryption
-
-    def get_type(self) -> str:
-        return self._type
 
     def get_collection_id(self) -> str:
         return self._collection_id
