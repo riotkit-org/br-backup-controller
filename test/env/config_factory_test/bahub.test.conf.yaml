@@ -10,7 +10,9 @@ accesses:
 
 encryption:
     strong:
-        passphrase: "some-string-passphrase"
+        private_key_path: "test/env/config_factory_test/gpg-key.asc"
+        public_key_path: ""
+        passphrase: "riotkit"
         email: "bakunin@anarchista.net"
 
 transports:
