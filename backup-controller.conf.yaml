@@ -15,7 +15,7 @@ accesses:
 
 encryption:
     strong:
-        private_key_path: "../backup-maker/resources/test/gpg-key.asc"
+        private_key_path: "~/Projekty/riotkit/br-backup-maker/resources/test/gpg-key.asc"
         public_key_path: ""
         passphrase: "riotkit"
         email: "test@riotkit.org"
@@ -36,7 +36,7 @@ transports:
             container: "nginx_bahub_test"
 
     side_docker_fs:
-        type: bahub.transports.sidedocker
+        type: bahub.transports.docker_sidecontainer
         spec:
             orig_container: "nginx_bahub_test"
             temp_container_image: "alpine:3.12"

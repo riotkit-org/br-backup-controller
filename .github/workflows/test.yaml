@@ -39,3 +39,9 @@ jobs:
             - name: Test
               run: |
                   make tests
+
+            - name: Build container
+              uses: docker/build-push-action@v2
+              with:
+                  context: .
+                  push: false
