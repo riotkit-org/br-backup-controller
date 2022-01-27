@@ -5,17 +5,15 @@ from rkd.api.contract import ExecutionContext, TaskInterface
 from ..importing import Importing
 from ..transports.all import transports
 from ..adapters import adapters
-from .base import BaseTask
 
 
-class BackupTypeSchemaPrintingTask(BaseTask):
+class BackupTypeSchemaPrintingTask(TaskInterface):
     """Shows JSON schema of section 'spec' in backup of given type"""
 
     def get_name(self) -> str: return ':schema'
     def get_group_name(self) -> str: return ':help:backup'
 
     def configure_argparse(self, parser: ArgumentParser, with_definition: bool = False):
-        super().configure_argparse(parser, with_definition)
         parser.add_argument('type', help='Task type (value of the field "type" in backup definitions)')
 
     def execute(self, context: ExecutionContext) -> bool:
@@ -31,14 +29,13 @@ class BackupTypeSchemaPrintingTask(BaseTask):
         return True
 
 
-class BackupTypeExampleTask(BaseTask):
+class BackupTypeExampleTask(TaskInterface):
     """Shows example configuration for a given backup type. See :help:info for list of built-in tasks"""
 
     def get_name(self) -> str: return ':example'
     def get_group_name(self) -> str: return ':help:backup'
 
     def configure_argparse(self, parser: ArgumentParser, with_definition: bool = False):
-        super().configure_argparse(parser, with_definition)
         parser.add_argument('type', help='Task type (value of the field "type" in backup definitions)')
 
     def execute(self, context: ExecutionContext) -> bool:
@@ -58,14 +55,13 @@ class BackupTypeExampleTask(BaseTask):
         return True
 
 
-class TransportTypeTask(BaseTask):
+class TransportTypeTask(TaskInterface):
     """Shows example transport configuration for given transport. See :help:info for list of built-in transports"""
 
     def get_name(self) -> str: return ':example'
     def get_group_name(self) -> str: return ':help:transport'
 
     def configure_argparse(self, parser: ArgumentParser, with_definition: bool = False):
-        super().configure_argparse(parser, with_definition)
         parser.add_argument('type', help='Transport type (value of the field "type" in transport list)')
 
     def execute(self, context: ExecutionContext) -> bool:
