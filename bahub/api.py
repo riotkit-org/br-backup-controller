@@ -15,7 +15,6 @@ from bahub.env import is_curl_debug_mode
 from bahub.exception import InvalidResponseException, HttpException
 from bahub.inputoutput import StreamableBuffer
 from bahub.model import ServerAccess
-from bahub.response import VersionUploadedResponse
 
 
 class BackupRepository(object):

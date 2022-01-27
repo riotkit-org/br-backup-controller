@@ -11,7 +11,7 @@ Those binaries are fetched to the local cache, then are distributed to remote fi
 
 import os.path
 from typing import List
-from tempfile import TemporaryFile, NamedTemporaryFile
+from tempfile import NamedTemporaryFile
 from rkd.api.inputoutput import IO
 from bahub.fs import FilesystemInterface
 from bahub.versions import BACKUP_MAKER_BIN_VERSION, TRACEXIT_BIN_VERSION
