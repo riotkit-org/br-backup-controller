@@ -3,10 +3,9 @@ from testcontainers.core.container import DockerContainer
 from unittest.mock import patch
 from rkd.api.inputoutput import IO, BufferedSystemIO
 from rkd.api.testing import BasicTestingCase
-from bahub.model import ServerAccess, Encryption
 from bahub.transports.docker_sidecontainer import Transport as SideDockerTransport
 from bahub.transports.docker import Transport as DockerExecTransport
-from bahub.adapters.filesystem import Definition as FilesystemBackupDefinition
+from bahub.testing import create_example_fs_definition
 
 
 class TestDockerTransport(BasicTestingCase):
@@ -20,7 +19,7 @@ class TestDockerTransport(BasicTestingCase):
     def test_side_docker_transport_executes_command_inside_temporary_container(self, create_backup_maker_command):
         io = BufferedSystemIO()
         transport = self._create_example_side_docker_transport(io)
-        definition = self._create_example_definition(transport)
+        definition = create_example_fs_definition(transport)
 
         create_backup_maker_command.return_value = ["ls", "-la", "/mnt"]
 
@@ -35,7 +34,7 @@ class TestDockerTransport(BasicTestingCase):
     def test_docker_exec_transport_executes_command_inside_container(self, create_backup_maker_command):
         io = BufferedSystemIO()
         transport = self._create_example_docker_exec_transport(io)
-        definition = self._create_example_definition(transport)
+        definition = create_example_fs_definition(transport)
 
         create_backup_maker_command.return_value = ["ls", "/config"]
 
@@ -51,7 +50,7 @@ class TestDockerTransport(BasicTestingCase):
     def test_docker_exec_transport_reports_failure_when_binary_not_found(self, create_backup_maker_command):
         io = BufferedSystemIO()
         transport = self._create_example_docker_exec_transport(io)
-        definition = self._create_example_definition(transport)
+        definition = create_example_fs_definition(transport)
 
         create_backup_maker_command.return_value = ["not-a-valid-command"]
 
@@ -65,7 +64,7 @@ class TestDockerTransport(BasicTestingCase):
     def test_docker_exec_transport_reports_failure_when_command_fails(self, create_backup_maker_command):
         io = BufferedSystemIO()
         transport = self._create_example_docker_exec_transport(io)
-        definition = self._create_example_definition(transport)
+        definition = create_example_fs_definition(transport)
 
         create_backup_maker_command.return_value = ["/bin/sh", "-c", "/bin/false"]
 
@@ -93,28 +92,6 @@ class TestDockerTransport(BasicTestingCase):
     def tearDown(self) -> None:
         super().tearDown()
         self._nginx_container.stop(force=True, delete_volume=True)
-
-    @staticmethod
-    def _create_example_definition(transport) -> FilesystemBackupDefinition:
-        return FilesystemBackupDefinition.from_config(cls=FilesystemBackupDefinition, config={
-            "meta": {
-                "access": ServerAccess(
-                    url="http://localhost:8080",
-                    token="test"
-                ),
-                "collection_id": "1111-2222-3333-4444",
-                "encryption": Encryption.from_config(name="enc", config={
-                    "passphrase": "riotkit",
-                    "email": "test@riotkit.org",
-                    "public_key_path": "",
-                    "private_key_path": "test/env/config_factory_test/gpg-key.asc"
-                }),
-                "transport": transport
-            },
-            "spec": {
-                "paths": ["/app"]
-            },
-        }, name="fs")
 
     @staticmethod
     def _create_example_side_docker_transport(io: IO) -> SideDockerTransport:

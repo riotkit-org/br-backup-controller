@@ -76,6 +76,8 @@ class Transport(TransportInterface):
     versions_path: str = os.path.expanduser("~/.backuprepository/bin/versions")
     fs: FilesystemInterface
 
+    error: Exception
+
     def __init__(self, spec: dict, io: IO):
         super().__init__(spec, io)
         self.fs = LocalFilesystem()
@@ -92,13 +94,20 @@ class Transport(TransportInterface):
         )
 
     def schedule(self, command: str, definition: BackupDefinition, is_backup: bool, version: str = "") -> None:
-        self.handle = self._exec_command(
-            create_backup_maker_command(command, definition, is_backup, version), env={
-                "PATH": os.getenv("PATH") + ":" + self.bin_path
-            }
-        )
+        try:
+            self.handle = self._exec_command(
+                create_backup_maker_command(command, definition, is_backup, version), env={
+                    "PATH": os.getenv("PATH") + ":" + self.bin_path
+                }
+            )
+        except FileNotFoundError as exc:
+            self.error = exc
 
     def watch(self) -> bool:
+        if hasattr(self, "error") and self.error:
+            self.io().error(str(self.error))
+            return False
+
         self.handle.copy_to(sys.stderr)
         self.handle.close()
 

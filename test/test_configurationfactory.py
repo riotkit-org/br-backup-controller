@@ -28,7 +28,7 @@ class TestConfigurationFactory(BasicTestingCase):
 
     def test_parsing_envs_raises_exception_when_variable_is_not_defined(self):
         with self.assertRaisesRegexp(ConfigurationFactoryException,
-                                     'Following environment variables are not resolved: COLLECTION_ID'):
+                                     'Following environment variables cannot be resolved: COLLECTION_ID'):
             conf = ConfigurationFactory('bahub.test.conf.yaml', debug=True,
                                         parser=YamlFileLoader(YAML_DIR), io=IO())
 
@@ -49,7 +49,7 @@ class TestConfigurationFactory(BasicTestingCase):
                 self.assertEqual(FilesystemAdapterDefinition, type(definition))
 
             with self.subTest('Check connections between entities'):
-                self.assertEqual(conf._transports['local'], definition.transport(), msg='Transport does not match')
+                self.assertEqual(conf._transports['local'], definition.transport([]), msg='Transport does not match')
                 self.assertEqual(conf._encryption['strong'], definition.encryption())
                 self.assertEqual(conf._accesses['secured'], definition.access())
 
