@@ -3,7 +3,8 @@ from typing import Union
 from rkd.api.inputoutput import BufferedSystemIO
 from rkd.api.testing import BasicTestingCase
 from bahub.bin import RequiredBinary, RequiredBinaryFromGithubRelease, RequiredBinaryFromGithubReleasePackedInArchive, \
-    download_required_tools, copy_encryption_keys_from_controller_to_target_env
+    download_required_tools, copy_encryption_keys_from_controller_to_target_env, \
+    copy_required_tools_from_controller_cache_to_target_env
 from bahub.fs import FilesystemInterface
 
 
@@ -59,7 +60,7 @@ class FSMock(object):
 
 class TestDownloadRequiredTools(BasicTestingCase):
     """
-    Covers download_required_tools
+    Covers download_required_tools()
     """
 
     def test_downloads_and_unpacks_archive(self):
@@ -177,7 +178,7 @@ class TestDownloadRequiredTools(BasicTestingCase):
 
 class TestEncryptionKeysCopying(BasicTestingCase):
     """
-    Covers copy_encryption_keys_from_controller_to_target_env
+    Covers copy_encryption_keys_from_controller_to_target_env()
     """
 
     def test_copies_only_keys_that_exists(self):
@@ -210,3 +211,69 @@ class TestEncryptionKeysCopying(BasicTestingCase):
             dst_fs.callstack
         )
 
+
+class TestToolsTransferFromLocalCacheToTargetFilesystem(BasicTestingCase):
+    """
+    Covers copy_required_tools_from_controller_cache_to_target_env()
+    """
+
+    def test_no_binaries_triggers_early_exit(self):
+        fs: Union[FilesystemInterface, FSMock] = FSMock()
+        io = BufferedSystemIO()
+        io.set_log_level("debug")
+
+        copy_required_tools_from_controller_cache_to_target_env(
+            local_cache_fs=fs, dst_fs=fs, bin_path="/opt/bin", versions_path="/opt/bin/.versions",
+            local_versions_path="/tmp/.versions",
+            binaries=[],  # this is empty,
+            io=io
+        )
+
+        self.assertIn("All binaries are up-to-date", io.get_value())
+
+    def test_archive_is_copied_and_tools_are_linked(self):
+        local_cache_fs: Union[FilesystemInterface, FSMock] = FSMock()
+        dst_fs: Union[FilesystemInterface, FSMock] = FSMock()
+        io = BufferedSystemIO()
+        io.set_log_level("debug")
+
+        copy_required_tools_from_controller_cache_to_target_env(
+            local_cache_fs=local_cache_fs, dst_fs=dst_fs, bin_path="/opt/bin", versions_path="/opt/bin/.versions",
+            local_versions_path="/tmp/.versions",
+            binaries=[
+                RequiredBinaryFromGithubReleasePackedInArchive(
+                    project_name="riotkit-org/tracexit",
+                    version="1.6.1",
+                    binary_name="tracexit",
+                    archive_name="tracexit-1.0.0-amd64.tar.gz"
+                ),
+                RequiredBinaryFromGithubReleasePackedInArchive(
+                    project_name="riotkit-org/br-backup-maker",
+                    version="2.1.3.7",
+                    binary_name="br-backup-maker",
+                    archive_name="br-backup-maker-1.0.0-amd64.tar.gz"
+                )
+            ],
+            io=io
+        )
+
+        # versions are packed at source filesystem
+        self.assertIn('pack', str(local_cache_fs.callstack))
+        self.assertIn("'v1.6.1-tracexit', 'v2.1.3.7-br-backup-maker'", str(local_cache_fs.callstack))
+
+        # versions are unpacked at target filesystem
+        self.assertIn("copy_to", str(dst_fs.callstack))
+        self.assertIn(
+            ['unpack', ('/tmp/.backup-tools.tar.gz', '/opt/bin/.versions'), {}],
+            dst_fs.callstack
+        )
+
+        # files are linked
+        self.assertIn(
+            ['link', ('/opt/bin/.versions/v1.6.1-tracexit', '/opt/bin/tracexit'), {}],
+            dst_fs.callstack
+        )
+        self.assertIn(
+            ['link', ('/opt/bin/.versions/v2.1.3.7-br-backup-maker', '/opt/bin/br-backup-maker'), {}],
+            dst_fs.callstack
+        )

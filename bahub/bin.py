@@ -136,7 +136,8 @@ def copy_encryption_keys_from_controller_to_target_env(src_fs: FilesystemInterfa
             dst_fs.copy_to(key_path, f"/tmp/.gpg.{key_type}")
 
 
-def copy_required_tools_from_controller_cache_to_target_env(local_cache_fs: FilesystemInterface, dst_fs: FilesystemInterface, io: IO,
+def copy_required_tools_from_controller_cache_to_target_env(local_cache_fs: FilesystemInterface,
+                                                            dst_fs: FilesystemInterface, io: IO,
                                                             bin_path: str, versions_path: str, local_versions_path: str,
                                                             binaries: List[RequiredBinary]):
     """
