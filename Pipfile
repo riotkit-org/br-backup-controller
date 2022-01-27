@@ -13,6 +13,7 @@ python-gnupg = ">=0.4.6"
 PyYAML = ">=5.3.1"
 docker = "*"
 kubernetes = "*"
+pytest-rerunfailures = "*"
 
 [dev-packages]
 rkd-python = ">=2.3.4"
