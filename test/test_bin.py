@@ -3,7 +3,7 @@ from typing import Union
 from rkd.api.inputoutput import BufferedSystemIO
 from rkd.api.testing import BasicTestingCase
 from bahub.bin import RequiredBinary, RequiredBinaryFromGithubRelease, RequiredBinaryFromGithubReleasePackedInArchive, \
-    download_required_tools
+    download_required_tools, copy_encryption_keys_from_controller_to_target_env
 from bahub.fs import FilesystemInterface
 
 
@@ -58,6 +58,10 @@ class FSMock(object):
 
 
 class TestDownloadRequiredTools(BasicTestingCase):
+    """
+    Covers download_required_tools
+    """
+
     def test_downloads_and_unpacks_archive(self):
         """
         When tool does not exist, then it should be downloaded and unpacked (when it is an archive)
@@ -169,3 +173,40 @@ class TestDownloadRequiredTools(BasicTestingCase):
 
         # but should not be unpacked, as not an archive
         self.assertNotIn("unpack", str(fs.callstack))
+
+
+class TestEncryptionKeysCopying(BasicTestingCase):
+    """
+    Covers copy_encryption_keys_from_controller_to_target_env
+    """
+
+    def test_copies_only_keys_that_exists(self):
+        io = BufferedSystemIO()
+        io.set_log_level("debug")
+
+        src_fs: Union[FilesystemInterface, FSMock] = FSMock()
+
+        # mock: Only public key exists. Private key does not exist
+        src_fs.file_exists = lambda path: path == "id_rsa.pub"
+
+        dst_fs: Union[FilesystemInterface, FSMock] = FSMock()
+
+        copy_encryption_keys_from_controller_to_target_env(
+            src_fs=src_fs,
+            dst_fs=dst_fs,
+            pub_key_path="id_rsa.pub",
+            private_key_path="id_rsa",
+            io=io
+        )
+
+        self.assertIn(
+            ['copy_to', ('id_rsa.pub', '/tmp/.gpg.pub'), {}],
+            dst_fs.callstack
+        )
+
+        # private key is not copied, as it does not exist
+        self.assertNotIn(
+            ['copy_to', ('id_rsa', '/tmp/.gpg.key'), {}],
+            dst_fs.callstack
+        )
+
