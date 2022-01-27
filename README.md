@@ -9,6 +9,8 @@ Backups made easy, automated, monitored and SECURED with an audited encryption.
 
 Schedules backup tasks executed by `Backup Maker`, uploaded to `Backup Repository` server.
 
+**TLDR:** Downloads required tools, creates temporary PODS, temporary containers, spawns `backup-maker` process and notifies about the result.
+
 ```bash
 # common flows
 bahub :backup:make my_db
@@ -134,4 +136,71 @@ Development
 ```bash
 export RKD_SYS_LOG_LEVEL=debug
 python -m bahub -rl debug :SOME-TASK-HERE --config=./bahub.conf.yaml
+```
+
+Usage with Kubernetes
+---------------------
+
+### Side pod (temporary pod)
+
+Given your application is marked with `app=nginx` label in `default` namespace, then a temporary pod that will use same volumes as original pod
+will be spawned with image `ghcr.io/riotkit-org/backup-maker-env:latest` for maximum amount of `300 seconds`.
+
+`scaleDown` additionally scales down original POD for backup time, after backup is finished the original POD is restored to previous state.
+
+**Hint:** *Scale down services, where is no native backup method, so a filesystem adapter must be used. For example a mysql or postgresql backup using dumping method does not require scaling of the database pods, but copying /var/lib/mysql or /var/lib/postgresql would require pod scaling*
+
+```yaml
+transports:
+    kubernetes_pod_fs:
+        type: bahub.transports.kubernetes_sidepod
+        spec:
+            namespace: default
+            selector: "app=nginx"
+            image: "ghcr.io/riotkit-org/backup-maker-env:latest"
+            timeout: 300
+            scaleDown: true
+
+backups:
+    fs_kubernetes_pod:
+        meta:
+            type: bahub.adapters.filesystem
+            access: secured
+            encryption: strong
+            collection_id: "${TEST_COLLECTION_ID}"  # environment variable, can be an explicit value instead
+            transport: kubernetes_pod_fs
+        spec:
+            paths:
+                - /var/www
+```
+
+```bash
+backup-controller :backup:make fs_kubernetes_pod
+```
+
+### Pod exec `kubectl exec` like
+
+With this method backup is performed inside application pod.
+
+Makes a `kubectl exec`-like operation into a POD labelled with `app=nginx` to perform a backup.
+
+```yaml
+transports:
+    kubernetes_pod_fs:
+        type: bahub.transports.kubernetes_podexec
+        spec:
+            namespace: default
+            selector: "app=nginx"
+
+backups:
+    fs_kubernetes_pod:
+        meta:
+            type: bahub.adapters.filesystem
+            access: secured
+            encryption: strong
+            collection_id: "11111-2222-3333-4444"
+            transport: kubernetes_pod_fs
+        spec:
+            paths:
+                - /var/www
 ```
