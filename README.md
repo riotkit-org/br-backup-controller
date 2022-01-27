@@ -204,3 +204,17 @@ backups:
             paths:
                 - /var/www
 ```
+
+Automatic generated documentation/examples
+------------------------------------------
+
+```bash
+# see list of built-in adapters (backup types) and transports
+backup-controller :help:info
+
+# see example snippet for transport "bahub.transports.docker_sidecontainer"
+backup-controller :help:transport:example bahub.transports.docker_sidecontainer
+
+# see example snippet for backup type (adapter)
+backup-controller :help:backup:example bahub.adapters.mysql
+```
