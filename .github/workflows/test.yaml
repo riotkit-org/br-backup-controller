@@ -40,6 +40,8 @@ jobs:
 
             - name: Create Kubernetes Cluster
               uses: helm/kind-action@v1.2.0
+              with:
+                  cluster_name: kind
 
             - name: Test
               run: |
