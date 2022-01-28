@@ -13,6 +13,7 @@ from rkd.api.inputoutput import IO
 
 from bahub.bin import RequiredBinary, copy_required_tools_from_controller_cache_to_target_env, \
     copy_encryption_keys_from_controller_to_target_env
+from bahub.exception import ConfigurationError
 from bahub.settings import BIN_VERSION_CACHE_PATH, TARGET_ENV_BIN_PATH, TARGET_ENV_VERSIONS_PATH
 from bahub.transports.base import TransportInterface, create_backup_maker_command
 from bahub.transports.kubernetes import KubernetesPodFilesystem, pod_exec, ExecResult
@@ -31,8 +32,11 @@ class Transport(TransportInterface):
 
     def __init__(self, spec: dict, io: IO):
         super().__init__(spec, io)
-        self._namespace = spec.get('namespace')
-        self._selector = spec.get('selector')
+        self._namespace = spec.get('namespace', 'default')
+        self._selector = spec.get('selector', '')
+
+        if not self._selector:
+            raise ConfigurationError("'selector' for Kubernetes type transport cannot be empty")
 
     @staticmethod
     def get_specification_schema() -> dict:
@@ -171,6 +175,10 @@ class Transport(TransportInterface):
             pod: V1Pod = self._v1_core_api.read_namespaced_pod(name=pod_name, namespace=namespace)
 
             if pod.status.phase in ["Ready", "Healthy", "True", "Running"]:
+                self._wait_for_pod_containers_to_be_ready(pod_name, namespace, timeout)
+                self.io().info(f"POD entered '{pod.status.phase}' state")
+                time.sleep(1)
+
                 return True
 
             self.io().debug(f"Pod not ready. Status: {pod.status.phase}")
@@ -201,3 +209,16 @@ class Transport(TransportInterface):
 
     def get_required_binaries(self):
         return []
+
+    def _wait_for_pod_containers_to_be_ready(self, pod_name: str, namespace: str, timeout: int):
+        """
+        POD can be running, but containers could be still initializing
+        """
+
+        for i in range(0, timeout):
+            pod: V1Pod = self._v1_core_api.read_namespaced_pod(name=pod_name, namespace=namespace)
+
+            if all([(c.state.running and not c.state.waiting and not c.state.terminated)
+                    for c in pod.status.container_statuses]):
+                self.io().info("All containers in a POD have started")
+                return

@@ -36,6 +36,9 @@ jobs:
               run: |
                   pipenv install --deploy --dev
 
+            - name: Create Kubernetes Cluster
+              uses: helm/kind-action@v1.2.0
+
             - name: Test
               run: |
                   make tests

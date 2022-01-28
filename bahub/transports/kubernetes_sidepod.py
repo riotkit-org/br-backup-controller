@@ -27,6 +27,7 @@ class Transport(KubernetesPodExecTransport):
     _image: str
     _timeout: int
     _scale_down: bool
+    _pod_suffix: str
 
     # dynamic
     _temporary_pod_name: str
@@ -34,10 +35,11 @@ class Transport(KubernetesPodExecTransport):
 
     def __init__(self, spec: dict, io: IO):
         super().__init__(spec, io)
-        self._image = spec.get('image')
-        self._timeout = spec.get('timeout')
+        self._image = spec.get('image', 'ghcr.io/riotkit-org/backup-maker-env:latest')
+        self._timeout = spec.get('timeout', 3600)
         self._replicas_to_scale = []
-        self._scale_down = bool(spec.get('scaleDown'))
+        self._scale_down = bool(spec.get('scaleDown', False))
+        self._pod_suffix = spec.get('podSuffix', '-backup')
 
     @staticmethod
     def get_specification_schema() -> dict:
@@ -51,27 +53,39 @@ class Transport(KubernetesPodExecTransport):
                 "selector": {
                     "type": "string",
                     "example": "my-label=myvalue",
-                    "default": ""
+                    "default": "",
+                    "description": "Label selector to find origin POD"
                 },
                 "namespace": {
                     "type": "string",
                     "example": "prod",
-                    "default": "default"
+                    "default": "default",
+                    "description": "Kubernetes namespace, where the POD is placed and where "
+                                   "temporary POD should be placed"
                 },
                 "image": {
                     "type": "string",
                     "example": "ghcr.io/riotkit-org/backup-maker-env:latest",
-                    "default": "ghcr.io/riotkit-org/backup-maker-env:latest"
+                    "default": "ghcr.io/riotkit-org/backup-maker-env:latest",
+                    "description": "Container image for a temporary backup POD"
                 },
                 "timeout": {
                     "type": "integer",
                     "default": 3600,
-                    "example": 3600
+                    "example": 3600,
+                    "description": "Timeout in seconds"
                 },
                 "scaleDown": {
                     "type": "boolean",
                     "default": False,
-                    "example": False
+                    "example": False,
+                    "description": "Should the original POD be scaled down for backup time?"
+                },
+                "podSuffix": {
+                    "type": "string",
+                    "default": "-backup",
+                    "example": "-backup",
+                    "description": "Suffix for name of a backup POD (original pod name + suffix)"
                 }
             }
         }
@@ -89,7 +103,7 @@ class Transport(KubernetesPodExecTransport):
             )
 
             # spawn temporary pod
-            self._temporary_pod_name = f"{original_pod_name}-backup"
+            self._temporary_pod_name = f"{original_pod_name}{self._pod_suffix}"
             self._create_pod(
                 pod_name=self._temporary_pod_name,
                 specification=self._create_backup_pod_definition(
@@ -101,8 +115,11 @@ class Transport(KubernetesPodExecTransport):
                 )
             )
 
-            self._execute_in_pod_when_pod_will_be_ready(self._temporary_pod_name, command, definition, is_backup, version)
-        except:
+            self._execute_in_pod_when_pod_will_be_ready(self._temporary_pod_name, command, definition, is_backup,
+                                                        version)
+        except Exception as err:
+            self.io().error(f"Got error while scheduling backup in temporary POD: {err}")
+
             if self._scale_down:
                 self._scale_back()
 
@@ -214,7 +231,11 @@ class Transport(KubernetesPodExecTransport):
 
     def _terminate_pod(self, pod_name: str):
         self.io().info("Clean up - deleting temporary POD")
-        self._v1_core_api.delete_namespaced_pod(namespace=self._namespace, name=pod_name)
+
+        try:
+            self._v1_core_api.delete_namespaced_pod(namespace=self._namespace, name=pod_name)
+        except Exception as err:
+            self.io().error(f"Error while terminating pod: {err}")
 
     def _copy_volumes_specification_from_existing_pod(self, pod_name: str, namespace: str) -> Tuple[dict, list]:
         self.io().debug(f"Copying volumes specification from source pod={pod_name}")

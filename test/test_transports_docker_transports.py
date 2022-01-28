@@ -7,7 +7,7 @@ from rkd.api.inputoutput import IO, BufferedSystemIO
 from rkd.api.testing import BasicTestingCase
 from bahub.transports.docker_sidecontainer import Transport as SideDockerTransport
 from bahub.transports.docker import Transport as DockerExecTransport
-from bahub.testing import create_example_fs_definition
+from bahub.testing import create_example_fs_definition, run_transport
 
 
 class TestDockerTransport(BasicTestingCase):
@@ -25,7 +25,7 @@ class TestDockerTransport(BasicTestingCase):
 
         create_backup_maker_command.return_value = ["ls", "-la", "/mnt"]
 
-        self.assertTrue(self._run_transport(definition, transport), msg='Expected that `ls -la /mnt` would not fail')
+        self.assertTrue(run_transport(definition, transport), msg='Expected that `ls -la /mnt` would not fail')
 
         # at /mnt was mounted ./.github directory from repository (see setUp())
         self.assertIn('workflows', io.get_value(),
@@ -41,7 +41,7 @@ class TestDockerTransport(BasicTestingCase):
 
         create_backup_maker_command.return_value = ["ls", "/config"]
 
-        self.assertTrue(self._run_transport(definition, transport), msg="Expected that `ls /config` would work")
+        self.assertTrue(run_transport(definition, transport), msg="Expected that `ls /config` would work")
 
         # assert that according to https://github.com/linuxserver/docker-nginx/pkgs/container/nginx
         # there are a few directories, so the `docker exec` operation works
@@ -57,7 +57,7 @@ class TestDockerTransport(BasicTestingCase):
 
         create_backup_maker_command.return_value = ["not-a-valid-command"]
 
-        self.assertFalse(self._run_transport(definition, transport),
+        self.assertFalse(run_transport(definition, transport),
                          msg="Expected that invalid command will result in a failure")
 
         self.assertIn("executable file not found in $PATH", io.get_value(),
@@ -71,17 +71,7 @@ class TestDockerTransport(BasicTestingCase):
 
         create_backup_maker_command.return_value = ["/bin/sh", "-c", "/bin/false"]
 
-        self.assertFalse(self._run_transport(definition, transport), msg='/bin/false should return exit code 1')
-
-    @staticmethod
-    def _run_transport(definition, transport) -> bool:
-        with definition.transport(binaries=[]):
-            transport.schedule(
-                command="--mocked--", definition=definition,
-                is_backup=True, version=""
-            )
-
-            return transport.watch()
+        self.assertFalse(run_transport(definition, transport), msg='/bin/false should return exit code 1')
 
     # ================
     # Technical stuff

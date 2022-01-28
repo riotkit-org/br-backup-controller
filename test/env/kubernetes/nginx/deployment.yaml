@@ -15,8 +15,15 @@ spec:
             labels:
                 app: nginx
         spec:
+            volumes:
+                - name: www
+                  persistentVolumeClaim:
+                      claimName: nginx-pvc
             containers:
                 - name: nginx
                   image: nginx:1.19
                   ports:
                       - containerPort: 80
+                  volumeMounts:
+                      - mountPath: /var/www
+                        name: www
