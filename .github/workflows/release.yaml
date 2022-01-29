@@ -6,11 +6,29 @@ on:
 
 env:
     REGISTRY: ghcr.io
-    IMAGE_NAME: riotkit-org/backup-controller
 
 jobs:
+    prepare-environment:
+        runs-on: ubuntu-20.04
+        outputs:
+            IMAGE_NAME: ${{ image-name-discovery.outputs.IMAGE_NAME }}
+        steps:
+            #
+            # Discover docker image name
+            #   1. IF secret IMAGE_NAME is defined, it will be taken
+            #   2. Else org-name/repository would be used
+            #
+            - id: image-name-discovery
+              run: |
+                  if [[ "${{ secrets.IMAGE_NAME }}" != "" ]]; then
+                      echo "::set-output name=IMAGE_NAME::${{ secrets.IMAGE_NAME }}"
+                  else
+                      echo "::set-output name=IMAGE_NAME::${{github.repository}}"
+                  fi
+
     release:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-20.04
+        needs: [prepare-environment]
         steps:
             - name: Checkout
               uses: actions/checkout@v2
@@ -40,7 +58,7 @@ jobs:
               id: meta
               uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
               with:
-                  images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+                  images: ${{ env.REGISTRY }}/${{ needs.prepare-environment.outputs.IMAGE_NAME }}
 
             - name: Build and release to container registry
               uses: docker/build-push-action@v2
