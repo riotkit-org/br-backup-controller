@@ -52,6 +52,27 @@ class TestKubernetesTransport(BasicTestingCase):
         self.assertTrue(run_transport(definition, transport))
         self.assertIn("I have never read Marx Capital, but I have the marks of capital all over me.", io.get_value())
 
+    @patch('bahub.transports.kubernetes_podexec.create_backup_maker_command')
+    def test_exec_inside_application_pod_finds_mounted_file(self, create_backup_maker_command):
+        """
+        We do a `kubectl exec` into a running POD and execute a command, grab result
+        """
+
+        io = BufferedSystemIO()
+        io.set_log_level('debug')
+        transport = PodExecTransport(
+            spec={
+                'selector': "app=nginx",  # see: test/env/kubernetes/nginx
+                'namespace': 'default',
+            },
+            io=io
+        )
+        definition = create_example_fs_definition(transport)
+
+        create_backup_maker_command.return_value = ["cat", "/var/www/msg.html"]
+        self.assertTrue(run_transport(definition, transport))
+        self.assertIn("I have never read Marx Capital, but I have the marks of capital all over me.", io.get_value())
+
     @classmethod
     def setUpClass(cls) -> None:
         super(TestKubernetesTransport, cls).setUpClass()
