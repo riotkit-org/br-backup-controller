@@ -11,6 +11,7 @@ on:
 
 env:
     KEEP_CLUSTER: yes  # speed up by not deleting the Kubernetes cluster at beginning of tests. As the cluster is created in a Github Action before
+    PYTHON_VERSION: 3.10
 
 jobs:
     test:
