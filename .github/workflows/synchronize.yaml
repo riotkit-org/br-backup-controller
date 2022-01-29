@@ -19,9 +19,16 @@ jobs:
                   fetch-depth: 0
                   token: ${{ secrets.WORKFLOW_UPDATE_TOKEN }}
 
-            - name: Synchronize files
+            - name: Set up Python
+              uses: actions/setup-python@v2
+              with:
+                  python-version: "3.9"
+                  architecture: x64
+
+            - name: Synchronize and template files
               run: |
                   sh ci-sync.sh
+                  python .github/helpers/apply-vars.py .github/workflows
 
             - name: Commit and push
               run: |
