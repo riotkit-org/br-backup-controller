@@ -17,6 +17,7 @@ jobs:
             - uses: actions/checkout@v2
               with:
                   fetch-depth: 0
+                  token: ${{ secrets.WORKFLOW_UPDATE_TOKEN }}
 
             - name: Synchronize files
               run: |
@@ -24,6 +25,9 @@ jobs:
 
             - name: Commit and push
               run: |
+                  git config --global user.email "github@example.org"
+                  git config --global user.name "GitHub Actions"
+                  
                   git add .github
-                  git commit -m "chore: synchronize pipelines" || true
+                  git commit -m "chore: synchronize pipelines [skip ci]" || true
                   git push --force
