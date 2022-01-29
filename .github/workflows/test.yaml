@@ -15,4 +15,4 @@ env:
 
 jobs:
     test:
-        uses: riotkit-org/pipelines/pipelines/python-release-on-tag/.github/workflows/test.yaml@main
+        uses: riotkit-org/pipelines/.github/pipelines/python-release-on-tag/.github/workflows/test.yaml@main
