@@ -11,8 +11,50 @@ on:
 
 env:
     KEEP_CLUSTER: yes  # speed up by not deleting the Kubernetes cluster at beginning of tests. As the cluster is created in a Github Action before
-    PYTHON_VERSION: 3.10
 
 jobs:
     test:
-        uses: riotkit-org/pipelines/pipelines/python-release-on-tag/.github/workflows/test.yaml@9b2d50ae84eba903add61edb006e4f5265a41b05
+        runs-on: ubuntu-20.04
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+              with:
+                  fetch-depth: 0
+
+            - name: Prepare OS
+              run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
+
+            - name: Prepare Python
+              uses: actions/setup-python@v2
+              with:
+                  python-version: "3.9"
+                  architecture: "x64"
+
+            - name: Prepare Pipenv
+              run: "python -m pip install --upgrade pipenv wheel"
+
+            - id: cache-pipenv
+              uses: actions/cache@v1
+              with:
+                  path: ~/.local/share/virtualenvs
+                  key: ${{ runner.os }}-pipenv-${{ hashFiles('**/Pipfile.lock') }}
+
+            - name: Install dependencies using Pipenv
+              if: steps.cache-pipenv.outputs.cache-hit != 'true'
+              run: |
+                  pipenv install --deploy --dev
+
+            - name: Create Kubernetes Cluster
+              uses: helm/kind-action@v1.2.0
+              with:
+                  cluster_name: kind
+
+            - name: Test
+              run: |
+                  make tests
+
+            - name: Build container
+              uses: docker/build-push-action@v2
+              with:
+                  context: .
+                  push: false
