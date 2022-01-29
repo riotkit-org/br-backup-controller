@@ -218,3 +218,20 @@ backup-controller :help:transport:example bahub.transports.docker_sidecontainer
 # see example snippet for backup type (adapter)
 backup-controller :help:backup:example bahub.adapters.mysql
 ```
+
+
+## Contributing
+
+Contributions are welcome.
+
+To setup project you need to use `pipenv`.
+
+```bash
+pipenv install
+pipenv shell
+
+# inside Pipenv's shell
+export PYTHONPATH=$(pwd)
+pytest .  # run all tests
+KEEP_CLUSTER=yes pytest . --disable-pytest-warnings -k TestKubernetesTransport -s  # run Kubernetes integration tests
+```
