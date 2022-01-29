@@ -5,3 +5,7 @@
 .venv-setup.log
 .idea
 /.build
+/dist
+/*.egg-info
+/.pytest_cache
+/AUTHORS

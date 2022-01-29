@@ -1,0 +1,128 @@
+CHANGES
+=======
+
+* ci: Enable releasing to PyPI
+* ci: Temporaryily ignore test on CI
+* ci: Add docker build, clean up
+* fix: Do not enforce --config in docs commands
+* docs: Update docs
+* docs: Update docs about the Kubernetes support
+* ci: Increase re-run delay
+* tests: Cover copy\_required\_tools\_from\_controller\_cache\_to\_target\_env()
+* tests: Coverage for copy\_encryption\_keys\_from\_controller\_to\_target\_env()
+* tests: Cover download\_required\_tools()
+* tests: Increase coverage
+* ci: Add option to rerun failed tests
+* fix: Resolve tests
+* tests: Increase coverage
+* bc: Rename sidedocker to docker\_sidecontainer to fit the convention
+* tests: Cover Side docker somehow
+* ci: Try to make it run..
+* ci: Try to make it run..
+* ci: Try to make it run..
+* ci: Try to make it run..
+* ci: Try to make it run..
+* chore: Add Pytest
+* ci: Use GithubActions
+* feat: #161 Use /bin/sh
+* feat: #161 Add initial support for scaling up/down original service (only for basic APIs)
+* fix: #161 - Copy GPG keys to target filesystem
+* feat: Implement kubernetes\_sidepod to allow spawning temporary pods performing a backup job
+* fix: Fix not passed exit code in Kubernetes pod exec support
+* fix: Use backup-maker and tracexit always from GitHub releases
+* docs: Update docs, add license
+* Move repository
+* fix: #161 case, when error not happens
+* feat: WIP #161 - implement \`RequiredBinaryFromGithubReleasePackedInArchive\`
+* #161: WIP Kubernetes support
+* #161: WIP - initial Kubernetes support
+* #161: Standardize settings, make them in one place
+* #161: Implement cache for binaries
+* Bahub: WIP
+* Bahub: Update docs
+* Bahub: Update docs
+* Bahub: Update docs
+* Bahub: Update docs
+* Bahub: Update docs
+* Bahub: Update docs
+* Bahub: Update docs
+* Bahub: Update docs
+* Bahub: Update docs
+* Bahub: Update docs
+* Bahub: Add docs
+* Bahub: Implement a docker transport
+* Bahub: Fix loop reference
+* Bahub: Restore get\_failure\_details() implementation
+* WIP
+* #161: PoC - Backup Repository upload/download (backup/restore) client in Golang
+* Bahub: Enable compression in MySQL and PostgreSQL adapters by default
+* Bahub: #157 Added missing slack notifications + documentation
+* [Bahub] Fix issue with invalid log file (two log files cannot be in same place), add docs
+* Bahub: Create socket directory for jobber root user, as jobber no longer runs as limited user
+
+v4.0.0rc1
+---------
+
+* Bahub: Resolve issue with not working entrypoint
+* Bahub: Resolve \`400 The description failed to render in the default format of reStructuredText.\`
+* [Bahub] Fix access rights for Jobber
+* Bahub: Bump RKD
+* Bahub: #138 docs
+* Bahub: #138 implemented correct procedure for PostgreSQL restore - database needs to be shutdown before
+* #147: Unit tests coverage
+* Bahub: Do not verify TLS certs in CURL DEBUG MODE (RKD\_CURL\_DEBUG=true)
+* Bahub: Improve logging of file upload
+* #139: Fix publication in pipelines - remove refs/tags/ suffix from git ref coming from github
+* #139: Unify RKD tasks - :release:docker
+* #139: Add docker build for bahub
+* #139: CI fixes
+* #139: WIP pipeline
+* Bahub: running as root to have permissions to files - write to restore, read to make a backup
+* Bahub: Fixed missing curl
+* Project: Refactor build scripts as much as it is possible using RKD 2.3 (RKD 2.4 will bring better tools for this type of usage)
+* E2E: Corrected Bahub support, now works in docker
+* Bahub: Added missing GNUPG package
+* Bahub: Fix not starting jobber
+* Build scripts for production build
+* CI: Do not tag when not necessary
+* Bahub: Initial Docker image with Jobber included for scheduled backups
+* Bahub: Apply RKD good practices - do not import on CI application that is to be build
+* Bahub: Python package, docs
+* E2E: Initial tests for Bahub
+* Bahub: Connected implementation of environment variables passing
+* Bahub: Clean up, prepare for E2E tests
+* Bahub: Increase coverage
+* Bahub: Increase coverage
+* Update README
+* Bahub: Additional coverage
+* Bahub: Additional coverage
+* Bahub: Additional coverage
+* Bahub: Cover importing module with tests
+* Bahub: Encryption tests coverage
+* Bahub: Additional coverage
+* Bahub: Correct test to check proper method, not its usage
+* Bahub: Cover with unit tests - StreamableBuffer
+* Bahub: Add first unit tests coverage
+* Bahub: Refactor naming
+* Bahub: Refactor - simplify - replace functionality of copy\_to\_raw\_stream() with prevalidation in read()
+* Bahub: Added :help:info task
+* Bahub: Added \`:help:transport:example\` task
+* Bahub: Added stream prevalidation
+* Bahub: Clean ups in tasks naming and unused code
+* Bahub: Temporary Docker Transport (bahub.transports.temporarydocker) for doing offline backups
+* Bahub: Support for PostgreSQL dumps/restores
+* Bahub: Transports are now supporting JSON Schema validation
+* Bahub: Docker transport support
+* Bahub: Self-documenting tasks
+* Bahub: Implement passwords and other credentials stripping from logs
+* Bahub: Added capture() to the TransportInterface for output capturing
+* Bahub: Working MySQL adapter
+* Bahub: A working backup & restore
+* Bahub: Initial filesystem adapter
+* Bahub: WIP - fully implemented Encryption model
+* Bahub: WIP - Listing of cryptographic keys, working upload and encryption tasks, configurable GNUPGHOME
+* Bahub: Almost working MySQL adapter without restore yet
+* Bahub: Backup streaming with encryption pipe
+* Bahub: Notification implementation, connected secrets erasing
+* Bahub: Working upload task
+* Bahub: Initial shell client structure, WIP
