@@ -15,4 +15,4 @@ env:
 
 jobs:
     test:
-        uses: riotkit-org/pipelines/.github/workflows/propagate.yaml@9b2d50ae84eba903add61edb006e4f5265a41b05
+        uses: riotkit-org/pipelines/pipelines/python-release-on-tag/.github/workflows/test.yaml@9b2d50ae84eba903add61edb006e4f5265a41b05
