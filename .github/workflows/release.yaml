@@ -12,7 +12,7 @@ on:
 
 env:
     REGISTRY: ghcr.io
-    IMAGE_NAME: "{{IMAGE_NAME}}"
+    IMAGE_NAME: "riotkit-org/backup-controller"
 
 jobs:
     prepare-environment:
@@ -48,7 +48,7 @@ jobs:
             - name: Prepare Python
               uses: actions/setup-python@v2
               with:
-                  python-version: "{{PYTHON_VERSION}}"
+                  python-version: "3.9"
                   architecture: "x64"
 
             - name: Prepare Pipenv
