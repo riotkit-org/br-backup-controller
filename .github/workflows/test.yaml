@@ -16,6 +16,6 @@ jobs:
     test:
         runs-on: ubuntu-latest
         steps:
-            - uses: riotkit-org/pipelines/pipelines/python-release-on-tag/.github/workflows/test.yaml@main
+            - uses: riotkit-org/pipelines/pipelines/python-release-on-tag/.github/workflows/test@main
               env:
                   PYTHON_VERSION: "3.10"
