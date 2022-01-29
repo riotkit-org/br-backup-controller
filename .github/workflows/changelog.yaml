@@ -24,5 +24,5 @@ jobs:
                   REPO_NAME: '${{github.repository}}'
                   ACCESS_TOKEN: ${{secrets.GITHUB_TOKEN}}
                   PATH: 'Changelog.md'
-                  COMMIT_MESSAGE: 'docs(CHANGELOG): update release notes'
+                  COMMIT_MESSAGE: 'docs(CHANGELOG): update release notes [skip ci]'
                   TYPE: 'feat:Feature,fix:Bug Fixes,docs:Documentation,refactor:Refactor,perf:Performance Improvements'
