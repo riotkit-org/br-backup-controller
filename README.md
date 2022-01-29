@@ -222,7 +222,9 @@ backup-controller :help:backup:example bahub.adapters.mysql
 
 ## Contributing
 
-Contributions are welcome.
+Contributions are welcome. We are looking for co-maintainers due to fact that we maintain a lot of projects simultaneously.
+
+### Environment
 
 To setup project you need to use `pipenv`.
 
@@ -232,6 +234,15 @@ pipenv shell
 
 # inside Pipenv's shell
 export PYTHONPATH=$(pwd)
-pytest .  # run all tests
+pytest --disable-pytest-warnings .  # run all tests
 KEEP_CLUSTER=yes pytest . --disable-pytest-warnings -k TestKubernetesTransport -s  # run Kubernetes integration tests
 ```
+
+### Committing
+
+Please follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) guideline, additionally please
+add issue or pull request number.
+
+**Examples:**
+- `fix: #161 pod container status were not checked before attempt to execute a command in container`
+- `feat: #1312 implement ssh transport`
