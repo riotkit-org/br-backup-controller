@@ -1,6 +1,8 @@
 #
 # NOTICE: This file is synchronized on-demand by synchronize.yaml job from a shared library directory
 #
+# CUSTOMIZATION: Please edit .github/helpers/ci-vars.env to modify values that are injected
+#
 
 name: release
 on:

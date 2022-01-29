@@ -11,30 +11,19 @@ on:
     workflow_dispatch:
 
 jobs:
-    synchronize:
+    generate-changelog:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
               with:
                   fetch-depth: 0
-                  token: ${{ secrets.WORKFLOW_UPDATE_TOKEN }}
 
-            - name: Set up Python
-              uses: actions/setup-python@v2
-              with:
-                  python-version: "3.9"
-                  architecture: x64
-
-            - name: Synchronize and template files
+            - name: Synchronize files
               run: |
                   sh ci-sync.sh
-                  python .github/helpers/apply-vars.py .github/workflows
 
             - name: Commit and push
               run: |
-                  git config --global user.email "github@example.org"
-                  git config --global user.name "GitHub Actions"
-                  
                   git add .github
-                  git commit -m "chore: synchronize pipelines [skip ci]" || true
+                  git commit -m "chore: synchronize pipelines" || true
                   git push --force

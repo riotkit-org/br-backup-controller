@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+#
+# NOTICE: This file is synchronized on-demand by synchronize.yaml job from a shared library directory
+#
+
 import os.path
 import sys
 import glob
