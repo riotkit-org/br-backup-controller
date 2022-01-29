@@ -1,0 +1,29 @@
+#
+# NOTICE (shared library): This file is SYNCHRONIZED from pipelines/.shared directory
+#
+
+#
+# NOTICE: This file is synchronized on-demand by synchronize.yaml job from a shared library directory
+#
+
+name: Synchronize pipelines
+on:
+    workflow_dispatch:
+
+jobs:
+    generate-changelog:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+              with:
+                  fetch-depth: 0
+
+            - name: Synchronize files
+              run: |
+                  sh ci-sync.sh
+
+            - name: Commit and push
+              run: |
+                  git add .github
+                  git commit -m "chore: synchronize pipelines [skip ci]" || true
+                  git push --force
