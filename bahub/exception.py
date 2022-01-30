@@ -17,6 +17,22 @@ class DockerContainerError(TransportException):
         return DockerContainerError('Container "{}" is not running but actually {}'.format(container_id, status))
 
 
+class KubernetesError(TransportException):
+    @classmethod
+    def from_timed_out_waiting_for_pod(cls, pod_name: str, namespace: str) -> 'KubernetesError':
+        return cls(f"Timed out while waiting for pod '{pod_name}' in namespace '{namespace}'")
+
+    @classmethod
+    def cannot_scale_resource(cls, name: str, namespace: str, replicas: int):
+        return cls(f"Cannot achieve desired state of '{replicas}' replicas for '{name}' in '{namespace}' namespace")
+
+    @classmethod
+    def from_pod_creation_conflict(cls, pod_name: str):
+        return cls(f"POD '{pod_name}' already exists or is terminating, "
+                   f"please wait a moment - cannot start process in parallel, "
+                   f"it may break something")
+
+
 class ConfigurationFactoryException(ApplicationException):
     pass
 
@@ -77,17 +93,6 @@ class BufferingError(ApplicationException):
     @staticmethod
     def from_early_buffer_exit(stream_description: str) -> 'BufferingError':
         return BufferingError('Buffering of stream "{}" ended earlier with error'.format(stream_description))
-
-
-class CryptographyConfigurationError(ApplicationException):
-    pass
-
-
-class CryptographyKeysAlreadyCreated(CryptographyConfigurationError):
-    @staticmethod
-    def from_keys_already_created(user_id: str) -> 'CryptographyConfigurationError':
-        return CryptographyKeysAlreadyCreated('Cryptography keys for "{uid}" already created, skipping creation'
-                                              .format(uid=user_id))
 
 
 class BackupProcessError(ApplicationException):

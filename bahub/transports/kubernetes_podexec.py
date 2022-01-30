@@ -5,10 +5,8 @@ Kubernetes POD EXEC transport
 Performs `exec` operation into EXISTING, RUNNING POD to run a backup operation in-place.
 """
 
-import time
 from typing import List
 from kubernetes import config, client
-from kubernetes.client import V1PodList, V1Pod, V1ObjectMeta
 from rkd.api.inputoutput import IO
 
 from bahub.bin import RequiredBinary, copy_required_tools_from_controller_cache_to_target_env, \
@@ -16,7 +14,8 @@ from bahub.bin import RequiredBinary, copy_required_tools_from_controller_cache_
 from bahub.exception import ConfigurationError
 from bahub.settings import BIN_VERSION_CACHE_PATH, TARGET_ENV_BIN_PATH, TARGET_ENV_VERSIONS_PATH
 from bahub.transports.base import TransportInterface, create_backup_maker_command
-from bahub.transports.kubernetes import KubernetesPodFilesystem, pod_exec, ExecResult
+from bahub.transports.kubernetes import KubernetesPodFilesystem, pod_exec, ExecResult, find_pod_name, \
+    wait_for_pod_to_be_ready
 from bahub.transports.sh import LocalFilesystem
 
 
@@ -34,6 +33,7 @@ class Transport(TransportInterface):
         super().__init__(spec, io)
         self._namespace = spec.get('namespace', 'default')
         self._selector = spec.get('selector', '')
+        self._timeout = int(spec.get('timeout', 120))
 
         if not self._selector:
             raise ConfigurationError("'selector' for Kubernetes type transport cannot be empty")
@@ -56,6 +56,11 @@ class Transport(TransportInterface):
                     "type": "string",
                     "example": "prod",
                     "default": "default"
+                },
+                "timeout": {
+                    "type": "string",
+                    "example": 120,
+                    "default": 120
                 }
             }
         }
@@ -84,7 +89,7 @@ class Transport(TransportInterface):
         Runs a `kubectl exec` on already existing POD
         """
 
-        pod_name = self.find_pod_name(self._selector, self._namespace)
+        pod_name = self._find_pod_name(self._selector, self._namespace)
         self._execute_in_pod_when_pod_will_be_ready(pod_name, command, definition, is_backup, version)
 
     def __exit__(self, exc_type, exc_val, exc_t) -> None:
@@ -113,7 +118,7 @@ class Transport(TransportInterface):
         :return:
         """
 
-        self.wait_for_pod_to_be_ready(pod_name, self._namespace)
+        wait_for_pod_to_be_ready(self._v1_core_api, pod_name, self._namespace, io=self.io(), timeout=self._timeout)
         self._prepare_environment_inside_pod(definition, pod_name)
 
         complete_cmd = create_backup_maker_command(command, definition, is_backup, version,
@@ -162,63 +167,8 @@ class Transport(TransportInterface):
         self._process.watch(self.io().debug)
         return self._process.has_exited_with_success()
 
-    def wait_for_pod_to_be_ready(self, pod_name: str, namespace: str, timeout: int = 120):
-        """
-        Waits for POD to reach a valid state
-
-        :raises: When timeout hits
-        """
-
-        self.io().debug("Waiting for POD to be ready...")
-
-        for i in range(0, timeout):
-            pod: V1Pod = self._v1_core_api.read_namespaced_pod(name=pod_name, namespace=namespace)
-
-            if pod.status.phase in ["Ready", "Healthy", "True", "Running"]:
-                self._wait_for_pod_containers_to_be_ready(pod_name, namespace, timeout)
-                self.io().info(f"POD entered '{pod.status.phase}' state")
-                time.sleep(1)
-
-                return True
-
-            self.io().debug(f"Pod not ready. Status: {pod.status.phase}")
-            time.sleep(1)
-
-        raise Exception(f"Timed out while waiting for pod '{pod_name}' in namespace '{namespace}'")
-
-    def find_pod_name(self, selector: str, namespace: str):
-        """
-        Returns a POD name
-
-        :raises: When no matching POD found
-        """
-
-        pods: V1PodList = self.v1_core_api.list_namespaced_pod(namespace,
-                                                               label_selector=selector,
-                                                               limit=1)
-
-        if len(pods.items) == 0:
-            raise Exception(f'No pods found matching selector {selector} in {namespace} namespace')
-
-        pod: V1Pod = pods.items[0]
-        pod_metadata: V1ObjectMeta = pod.metadata
-
-        self.io().debug(f"Found POD name: '{pod_metadata.name}' in namespace '{namespace}'")
-
-        return pod_metadata.name
-
     def get_required_binaries(self):
         return []
 
-    def _wait_for_pod_containers_to_be_ready(self, pod_name: str, namespace: str, timeout: int):
-        """
-        POD can be running, but containers could be still initializing
-        """
-
-        for i in range(0, timeout):
-            pod: V1Pod = self._v1_core_api.read_namespaced_pod(name=pod_name, namespace=namespace)
-
-            if all([(c.state.running and not c.state.waiting and not c.state.terminated)
-                    for c in pod.status.container_statuses]):
-                self.io().info("All containers in a POD have started")
-                return
+    def _find_pod_name(self, selector: str, namespace: str) -> str:
+        return find_pod_name(self.v1_core_api, selector, namespace, self.io())

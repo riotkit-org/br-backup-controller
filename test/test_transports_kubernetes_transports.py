@@ -3,8 +3,13 @@ import os
 import subprocess
 import time
 from unittest.mock import patch
+
+from kubernetes import config
+from kubernetes.client import CoreV1Api
 from rkd.api.inputoutput import IO, BufferedSystemIO
 from rkd.api.testing import BasicTestingCase
+
+from bahub.transports.kubernetes import find_pod_name, create_pod, wait_for_pod_to_be_ready
 from bahub.transports.kubernetes_podexec import Transport as PodExecTransport
 from bahub.transports.kubernetes_sidepod import Transport as SidePodTransport
 from bahub.testing import create_example_fs_definition, run_transport
@@ -72,6 +77,114 @@ class TestKubernetesTransport(BasicTestingCase):
         create_backup_maker_command.return_value = ["cat", "/var/www/msg.html"]
         self.assertTrue(run_transport(definition, transport))
         self.assertIn("I have never read Marx Capital, but I have the marks of capital all over me.", io.get_value())
+
+    @patch('bahub.transports.kubernetes_podexec.create_backup_maker_command')
+    def test_inside_reports_failure_when_command_returns_error_exit_code(self, create_backup_maker_command):
+        """
+        Test SidePod and PodExec transports against invalid command - watch() should return False
+        """
+
+        io = BufferedSystemIO()
+        io.set_log_level('debug')
+
+        transports = [
+            PodExecTransport(
+                spec={
+                    'selector': "app=nginx",  # see: test/env/kubernetes/nginx
+                    'namespace': 'default',
+                },
+                io=io
+            ),
+            SidePodTransport(
+                spec={
+                    'selector': "app=nginx",  # see: test/env/kubernetes/nginx
+                    'namespace': 'default',
+                    'shell': '/bin/sh',
+                    'image': 'ghcr.io/mirrorshub/docker/alpine:3.14',
+                    'podSuffix': f"-backup-{hashlib.sha224(self._testMethodName.encode('utf-8')).hexdigest()[0:9]}"
+                },
+                io=io
+            )
+        ]
+
+        for transport in transports:
+            definition = create_example_fs_definition(transport)
+
+            create_backup_maker_command.return_value = ["/bin/false"]
+            self.assertFalse(run_transport(definition, transport),
+                             msg=f"{transport} failed assertion, as command is expected to fail as /bin/false was used"
+                                 f" which returns a exit code '1'")
+
+    def test_find_pod_name_raises_exception_when_pod_does_not_exist(self):
+        config.load_kube_config()
+
+        with self.assertRaises(Exception) as raised:
+            find_pod_name(api=CoreV1Api(),
+                          selector="my-non-existing-selector=value",
+                          namespace="kube-system",
+                          io=BufferedSystemIO())
+
+        self.assertIn("No pods found matching selector", str(raised.exception))
+        self.assertIn("my-non-existing-selector=value", str(raised.exception))
+        self.assertIn("kube-system", str(raised.exception))
+
+    def test_find_pod_name_finds_pod(self):
+        subprocess.check_call(["kubectl", "apply", "-f", os.getcwd() + "/test/env/kubernetes/nginx/"])
+        time.sleep(5)
+
+        config.load_kube_config()
+        name = find_pod_name(api=CoreV1Api(),
+                             selector="app=nginx",   # labels taken from deployment.yaml that was just applied
+                             namespace="default",
+                             io=BufferedSystemIO())
+
+        self.assertIn("nginx", name)
+
+    def test_created_pod_will_timeout_and_will_be_deleted(self):
+        """
+        Covers: _create_backup_pod_definition(), create_pod() and wait_for_pod_to_be_ready()
+        :return:
+        """
+
+        # at first: clean up
+        subprocess.call(["kubectl", "delete", "pod", "test-creation-and-scaling"])
+
+        config.load_kube_config()
+
+        transport = SidePodTransport({'selector': '...'}, io=BufferedSystemIO())
+        transport._image = "ghcr.io/mirrorshub/docker/alpine:3.14"
+
+        create_pod(
+            api=CoreV1Api(),
+            pod_name="test-creation-and-scaling",
+            namespace="default",
+            specification=transport._create_backup_pod_definition(
+                original_pod_name="something",
+                backup_pod_name="something-backup",
+                timeout=4,
+                volumes=None,
+                volume_mounts=None
+            ),
+            io=BufferedSystemIO()
+        )
+        wait_for_pod_to_be_ready(api=CoreV1Api(),
+                                 pod_name="test-creation-and-scaling",
+                                 namespace="default",
+                                 io=BufferedSystemIO(),
+                                 timeout=120)
+
+        self.assertIn(
+            "Running",
+            subprocess.check_output("kubectl get pods -n default | grep test-creation-and-scaling", shell=True)
+            .decode('utf-8')
+        )
+
+        time.sleep(5)
+        self.assertIn(
+            "Completed",
+            subprocess.check_output("kubectl get pods -n default | grep test-creation-and-scaling", shell=True)
+            .decode('utf-8')
+        )
 
     @classmethod
     def setUpClass(cls) -> None:

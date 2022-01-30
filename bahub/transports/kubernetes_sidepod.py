@@ -6,12 +6,13 @@ Creates a temporary POD that has access to all volumes of original POD.
 Temporary POD is attempted to be scheduled closest to the original POD to mitigate the latency
 """
 import json
-import time
 from dataclasses import dataclass
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
-from kubernetes.client import ApiException, V1Pod, V1ObjectMeta, V1OwnerReference, V1Scale, V1ScaleSpec
+from kubernetes.client import V1Pod, V1ObjectMeta, V1OwnerReference
 from rkd.api.inputoutput import IO
+
+from .kubernetes import wait_for_pod_to_be_ready, scale_resource, create_pod
 from .kubernetes_podexec import Transport as KubernetesPodExecTransport
 
 
@@ -36,7 +37,6 @@ class Transport(KubernetesPodExecTransport):
     def __init__(self, spec: dict, io: IO):
         super().__init__(spec, io)
         self._image = spec.get('image', 'ghcr.io/riotkit-org/backup-maker-env:latest')
-        self._timeout = spec.get('timeout', 3600)
         self._replicas_to_scale = []
         self._scale_down = bool(spec.get('scaleDown', False))
         self._pod_suffix = spec.get('podSuffix', '-backup')
@@ -86,12 +86,12 @@ class Transport(KubernetesPodExecTransport):
                     "default": "-backup",
                     "example": "-backup",
                     "description": "Suffix for name of a backup POD (original pod name + suffix)"
-                }
+                },
             }
         }
 
     def schedule(self, command: str, definition, is_backup: bool, version: str = "") -> None:
-        original_pod_name = self.find_pod_name(self._selector, self._namespace)
+        original_pod_name = self._find_pod_name(self._selector, self._namespace)
 
         try:
             if self._scale_down:
@@ -104,7 +104,9 @@ class Transport(KubernetesPodExecTransport):
 
             # spawn temporary pod
             self._temporary_pod_name = f"{original_pod_name}{self._pod_suffix}"
-            self._create_pod(
+            create_pod(
+                self._v1_core_api,
+                namespace=self._namespace,
                 pod_name=self._temporary_pod_name,
                 specification=self._create_backup_pod_definition(
                     original_pod_name,
@@ -112,7 +114,8 @@ class Transport(KubernetesPodExecTransport):
                     self._timeout,
                     volumes,
                     volume_mounts
-                )
+                ),
+                io=self.io()
             )
 
             self._execute_in_pod_when_pod_will_be_ready(self._temporary_pod_name, command, definition, is_backup,
@@ -168,42 +171,7 @@ class Transport(KubernetesPodExecTransport):
                 namespace=namespace,
                 replicas=deployment_as_dict['spec'].get('replicas', 0)
             ))
-            self._scale(owner.name, namespace, 0)
-
-    def _scale(self, name: str, namespace: str, replicas: int):
-        """
-        Scale down given Deployment/ReplicationController/StatefulSet
-
-        :param name:
-        :param namespace:
-        :param replicas:
-        :return:
-        """
-
-        self.io().info(f"Scaling deployment/{name} in {namespace} namespace to replicas '{replicas}'")
-        scale = V1Scale(
-            metadata=V1ObjectMeta(name=name, namespace=namespace),
-            spec=V1ScaleSpec(
-                replicas=replicas
-            )
-        )
-        self.v1_apps_api.replace_namespaced_deployment_scale(name, namespace, scale)
-
-        # then wait for it to be applied
-        for i in range(0, 3600):
-            deployment_as_dict = json.loads(self.v1_apps_api.read_namespaced_deployment(name=name,
-                                                                                        namespace=namespace,
-                                                                                        _preload_content=False).data)
-
-            current_replicas_num = int(deployment_as_dict['spec']['replicas'])
-
-            if current_replicas_num == int(replicas):
-                self.io().info(f"POD's controller scaled to {replicas}")
-                break
-
-            self.io().debug(f"Waiting for cluster to scale POD's controller to {replicas},"
-                            f" currently: {current_replicas_num}")
-            time.sleep(1)
+            scale_resource(self.v1_apps_api, owner.name, namespace, 0, io=self.io())
 
     def _scale_back(self):
         """
@@ -213,21 +181,8 @@ class Transport(KubernetesPodExecTransport):
         """
 
         for kind_object in self._replicas_to_scale:
-            self._scale(kind_object.name, kind_object.namespace, kind_object.replicas)
-
-    def _create_pod(self, pod_name: str, specification: dict):
-        self.io().info(f"Creating temporary POD '{pod_name}'")
-
-        try:
-            self._v1_core_api.create_namespaced_pod(namespace=self._namespace, body=specification)
-
-        except ApiException as e:
-            if e.reason == "Conflict" and "AlreadyExists" in str(e.body):
-                raise Exception(f"POD '{pod_name}' already exists or is terminating, "
-                                f"please wait a moment - cannot start process in parallel, "
-                                f"it may break something") from e
-
-            raise e
+            scale_resource(self.v1_apps_api, kind_object.name, kind_object.namespace,
+                           kind_object.replicas, io=self.io())
 
     def _terminate_pod(self, pod_name: str):
         self.io().info("Clean up - deleting temporary POD")
@@ -239,7 +194,7 @@ class Transport(KubernetesPodExecTransport):
 
     def _copy_volumes_specification_from_existing_pod(self, pod_name: str, namespace: str) -> Tuple[dict, list]:
         self.io().debug(f"Copying volumes specification from source pod={pod_name}")
-        self.wait_for_pod_to_be_ready(pod_name, namespace)
+        wait_for_pod_to_be_ready(self._v1_core_api, pod_name, namespace, io=self.io(), timeout=self._timeout)
         pod = json.loads(self._v1_core_api.read_namespaced_pod(pod_name, namespace, _preload_content=False).data)
 
         try:
@@ -291,7 +246,7 @@ class Transport(KubernetesPodExecTransport):
             self._scale_back()
 
     def _create_backup_pod_definition(self, original_pod_name: str, backup_pod_name: str, timeout: int,
-                                      volumes: dict, volume_mounts: list) -> dict:
+                                      volumes: Optional[dict], volume_mounts: Optional[list]) -> dict:
         return {
             'apiVersion': 'v1',
             'kind': 'Pod',
@@ -303,6 +258,7 @@ class Transport(KubernetesPodExecTransport):
                 }
             },
             'spec': {
+                "restartPolicy": "Never",
                 'containers': [
                     {
                         'image': self._image,

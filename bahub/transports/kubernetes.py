@@ -1,16 +1,20 @@
 """
 Generic Kubernetes methods for building Kubernetes transports
 """
-
-
+import json
 import os
+import time
 from typing import List, Callable
 import yaml
 from tempfile import TemporaryDirectory
+
+from kubernetes.client import CoreV1Api, V1PodList, V1Pod, V1ObjectMeta, V1Scale, V1ScaleSpec, AppsV1Api, ApiException
 from kubernetes.stream.ws_client import WSClient, ERROR_CHANNEL
 from rkd.api.inputoutput import IO
 from kubernetes import client
 from kubernetes.stream import stream
+
+from ..exception import KubernetesError
 from ..fs import FilesystemInterface
 
 
@@ -91,6 +95,110 @@ def pod_exec(pod_name: str, namespace: str, cmd: List[str], io: IO) -> ExecResul
         ),
         io
     )
+
+
+def find_pod_name(api: CoreV1Api, selector: str, namespace: str, io: IO) -> str:
+    """
+    Returns a POD name
+
+    :raises: When no matching POD found
+    """
+
+    pods: V1PodList = api.list_namespaced_pod(namespace,  label_selector=selector, limit=1)
+
+    if len(pods.items) == 0:
+        raise Exception(f'No pods found matching selector {selector} in {namespace} namespace')
+
+    pod: V1Pod = pods.items[0]
+    pod_metadata: V1ObjectMeta = pod.metadata
+
+    io.debug(f"Found POD name: '{pod_metadata.name}' in namespace '{namespace}'")
+
+    return pod_metadata.name
+
+
+def wait_for_pod_to_be_ready(api: CoreV1Api, pod_name: str, namespace: str, io: IO, timeout: int = 120):
+    """
+    Waits for POD to reach a valid state
+
+    :raises: When timeout hits
+    """
+
+    io.debug("Waiting for POD to be ready...")
+
+    for i in range(0, timeout):
+        pod: V1Pod = api.read_namespaced_pod(name=pod_name, namespace=namespace)
+
+        if pod.status.phase in ["Ready", "Healthy", "True", "Running"]:
+            _wait_for_pod_containers_to_be_ready(api, pod_name, namespace, timeout, io)
+            io.info(f"POD entered '{pod.status.phase}' state")
+            time.sleep(1)
+
+            return True
+
+        io.debug(f"Pod not ready. Status: {pod.status.phase}")
+        time.sleep(1)
+
+    raise KubernetesError.from_timed_out_waiting_for_pod(pod_name, namespace)
+
+
+def _wait_for_pod_containers_to_be_ready(api: CoreV1Api, pod_name: str, namespace: str, timeout: int, io: IO):
+    """
+    POD can be running, but containers could be still initializing - this method waits for containers
+    """
+
+    for i in range(0, timeout):
+        pod: V1Pod = api.read_namespaced_pod(name=pod_name, namespace=namespace)
+
+        if all([(c.state.running and not c.state.waiting and not c.state.terminated)
+                for c in pod.status.container_statuses]):
+            io.info("All containers in a POD have started")
+            return
+
+
+def scale_resource(api: AppsV1Api, name: str, namespace: str, replicas: int, io: IO):
+    """
+    Scale down given Deployment/ReplicationController/StatefulSet
+    """
+
+    io.info(f"Scaling deployment/{name} in {namespace} namespace to replicas '{replicas}'")
+    scale_spec = V1Scale(
+        metadata=V1ObjectMeta(name=name, namespace=namespace),
+        spec=V1ScaleSpec(
+            replicas=replicas
+        )
+    )
+    api.replace_namespaced_deployment_scale(name, namespace, scale_spec)
+
+    # then wait for it to be applied
+    for i in range(0, 3600):
+        deployment_as_dict = json.loads(api.read_namespaced_deployment(name=name, namespace=namespace,
+                                                                       _preload_content=False).data)
+
+        current_replicas_num = int(deployment_as_dict['spec']['replicas'])
+
+        if current_replicas_num == int(replicas):
+            io.info(f"POD's controller scaled to {replicas}")
+            return
+
+        io.debug(f"Waiting for cluster to scale POD's controller to {replicas}, currently: {current_replicas_num}")
+        time.sleep(1)
+
+    raise KubernetesError.cannot_scale_resource(name, namespace, replicas)
+
+
+def create_pod(api: CoreV1Api, pod_name: str, namespace, specification: dict, io: IO):
+    io.info(f"Creating temporary POD '{pod_name}'")
+    specification['metadata']['name'] = pod_name
+
+    try:
+        api.create_namespaced_pod(namespace=namespace, body=specification)
+
+    except ApiException as e:
+        if e.reason == "Conflict" and "AlreadyExists" in str(e.body):
+            raise KubernetesError.from_pod_creation_conflict(pod_name) from e
+
+        raise e
 
 
 class KubernetesPodFilesystem(FilesystemInterface):
